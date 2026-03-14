@@ -14,11 +14,11 @@
  *   POST /api/coach/ask   – Protected (JWT required)
  */
 
-import { Router }    from 'express';
-import mongoose      from 'mongoose';
-import { body, validationResult } from 'express-validator';
-import OpenAI        from 'openai';
-import authMiddleware from './middleware/auth.js';
+import { Router } from "express";
+import mongoose from "mongoose";
+import { body, validationResult } from "express-validator";
+import OpenAI from "openai";
+import authMiddleware from "../middleware/auth.js";
 
 const router = Router();
 router.use(authMiddleware);
@@ -30,7 +30,7 @@ router.use(authMiddleware);
 let openai;
 const getOpenAI = () => {
   if (!openai) {
-    if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY not set');
+    if (!process.env.OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not set");
     openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   }
   return openai;
@@ -41,29 +41,37 @@ const getOpenAI = () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const coachLogSchema = new mongoose.Schema({
-  userId:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-  question:  { type: String, required: true, maxlength: 2000 },
-  answer:    { type: String, required: true },
-  language:  { type: String, enum: ['en', 'hi', 'hinglish'], default: 'en' },
-  model:     { type: String },
-  tokens:    { type: Number },
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+    index: true,
+  },
+  question: { type: String, required: true, maxlength: 2000 },
+  answer: { type: String, required: true },
+  language: { type: String, enum: ["en", "hi", "hinglish"], default: "en" },
+  model: { type: String },
+  tokens: { type: Number },
   latencyMs: { type: Number },
-  flagged:   { type: Boolean, default: false },  // true if guardrail triggered
+  flagged: { type: Boolean, default: false }, // true if guardrail triggered
   createdAt: { type: Date, default: Date.now, index: true },
 });
 
-const CoachLog = mongoose.models.CoachLog || mongoose.model('CoachLog', coachLogSchema);
+const CoachLog =
+  mongoose.models.CoachLog || mongoose.model("CoachLog", coachLogSchema);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS & PROMPT BUILDER
 // ─────────────────────────────────────────────────────────────────────────────
 
-const FALLBACK_ANSWER = "I'm having trouble connecting right now. Please try again later.";
+const FALLBACK_ANSWER =
+  "I'm having trouble connecting right now. Please try again later.";
 
 const LANGUAGE_INSTRUCTIONS = {
-  en:       '',
-  hi:       'Respond entirely in Hindi (Devanagari script). Keep the same friendly, simple tone.',
-  hinglish: 'Respond in Hinglish — a natural mix of Hindi and English words as commonly spoken by young urban Indians. Use Roman script (not Devanagari). Keep it conversational and friendly.',
+  en: "",
+  hi: "Respond entirely in Hindi (Devanagari script). Keep the same friendly, simple tone.",
+  hinglish:
+    "Respond in Hinglish — a natural mix of Hindi and English words as commonly spoken by young urban Indians. Use Roman script (not Devanagari). Keep it conversational and friendly.",
 };
 
 /**
@@ -111,9 +119,9 @@ const buildUserPrompt = (question, language) => {
  */
 const HARMFUL_PATTERNS = [
   /\b(kill|murder|suicide|bomb|weapon|hack|exploit|scam|fraud|launder)\b/i,
-  /<script[\s\S]*?>/i,       // XSS attempt
-  /DROP\s+TABLE/i,           // SQL injection attempt
-  /ignore\s+(previous|all)\s+instructions/i,  // prompt injection
+  /<script[\s\S]*?>/i, // XSS attempt
+  /DROP\s+TABLE/i, // SQL injection attempt
+  /ignore\s+(previous|all)\s+instructions/i, // prompt injection
 ];
 
 const containsHarm = (text) => HARMFUL_PATTERNS.some((p) => p.test(text));
@@ -123,23 +131,26 @@ const containsHarm = (text) => HARMFUL_PATTERNS.some((p) => p.test(text));
  * Strips obvious injection attempts and trims whitespace.
  */
 const sanitiseQuestion = (q) =>
-  q.replace(/<[^>]+>/g, '').trim().slice(0, 1500);  // strip HTML, cap length
+  q
+    .replace(/<[^>]+>/g, "")
+    .trim()
+    .slice(0, 1500); // strip HTML, cap length
 
 // ─────────────────────────────────────────────────────────────────────────────
 // VALIDATION
 // ─────────────────────────────────────────────────────────────────────────────
 
 const validation = [
-  body('question')
+  body("question")
     .isString()
-    .withMessage('Question must be a string')
+    .withMessage("Question must be a string")
     .trim()
     .isLength({ min: 2, max: 1500 })
-    .withMessage('Question must be between 2 and 1500 characters'),
-  body('language')
+    .withMessage("Question must be between 2 and 1500 characters"),
+  body("language")
     .optional()
-    .isIn(['en', 'hi', 'hinglish'])
-    .withMessage('language must be en, hi, or hinglish'),
+    .isIn(["en", "hi", "hinglish"])
+    .withMessage("language must be en, hi, or hinglish"),
 ];
 
 const handleValidation = (req, res) => {
@@ -163,61 +174,68 @@ const handleValidation = (req, res) => {
  * @body    { question: string, language?: 'en' | 'hi' | 'hinglish' }
  * @returns { answer: string, language: string, flagged?: boolean }
  */
-router.post('/ask', validation, async (req, res, next) => {
+router.post("/ask", validation, async (req, res, next) => {
   if (handleValidation(req, res)) return;
 
-  const userId     = req.user._id;
-  const language   = req.body.language ?? 'en';
-  const rawQ       = sanitiseQuestion(req.body.question ?? '');
+  const userId = req.user._id;
+  const language = req.body.language ?? "en";
+  const rawQ = sanitiseQuestion(req.body.question ?? "");
 
   // ── Input guardrail ─────────────────────────────────────────────────────────
   if (containsHarm(rawQ)) {
     // Log the flagged attempt but return a neutral response
     CoachLog.create({
-      userId, question: rawQ, answer: FALLBACK_ANSWER,
-      language, flagged: true,
+      userId,
+      question: rawQ,
+      answer: FALLBACK_ANSWER,
+      language,
+      flagged: true,
     }).catch(() => {});
 
     return res.status(200).json({
-      answer:   "I can only help with questions about the National Pension System (NPS) and retirement planning. Could you ask something related to NPS?",
+      answer:
+        "I can only help with questions about the National Pension System (NPS) and retirement planning. Could you ask something related to NPS?",
       language,
-      flagged:  true,
+      flagged: true,
     });
   }
 
   const startTime = Date.now();
-  let   answer    = FALLBACK_ANSWER;
-  let   model     = 'gpt-4o-mini';
-  let   tokens    = 0;
+  let answer = FALLBACK_ANSWER;
+  let model = "gpt-4o-mini";
+  let tokens = 0;
 
   try {
     const client = getOpenAI();
 
     const completion = await client.chat.completions.create({
-      model:       'gpt-4o-mini',    // fast + cost-efficient; swap to gpt-4o for higher quality
-      temperature: 0.3,              // low creativity → factual, consistent answers
-      max_tokens:  300,              // roughly 200–220 words maximum
+      model: "gpt-4o-mini", // fast + cost-efficient; swap to gpt-4o for higher quality
+      temperature: 0.3, // low creativity → factual, consistent answers
+      max_tokens: 300, // roughly 200–220 words maximum
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user',   content: buildUserPrompt(rawQ, language) },
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: buildUserPrompt(rawQ, language) },
       ],
     });
 
-    const raw    = completion.choices[0]?.message?.content ?? '';
-    tokens       = completion.usage?.total_tokens ?? 0;
-    model        = completion.model ?? model;
+    const raw = completion.choices[0]?.message?.content ?? "";
+    tokens = completion.usage?.total_tokens ?? 0;
+    model = completion.model ?? model;
 
     // ── Output guardrail ──────────────────────────────────────────────────────
     if (containsHarm(raw)) {
       console.warn(`[Coach] Output guardrail triggered for user ${userId}`);
-      answer = "I'm not able to respond to that. Please ask me something about NPS or retirement planning.";
+      answer =
+        "I'm not able to respond to that. Please ask me something about NPS or retirement planning.";
     } else {
       answer = raw.trim();
     }
-
   } catch (err) {
     // Log error detail server-side, return safe fallback to client
-    console.error(`[Coach] OpenAI error for user ${userId}:`, err?.message ?? err);
+    console.error(
+      `[Coach] OpenAI error for user ${userId}:`,
+      err?.message ?? err,
+    );
     answer = FALLBACK_ANSWER;
   }
 
@@ -225,9 +243,15 @@ router.post('/ask', validation, async (req, res, next) => {
 
   // ── Persist conversation log (fire-and-forget; never blocks response) ───────
   CoachLog.create({
-    userId, question: rawQ, answer, language, model, tokens, latencyMs,
+    userId,
+    question: rawQ,
+    answer,
+    language,
+    model,
+    tokens,
+    latencyMs,
   }).catch((logErr) => {
-    console.warn('[Coach] Failed to write conversation log:', logErr.message);
+    console.warn("[Coach] Failed to write conversation log:", logErr.message);
   });
 
   return res.status(200).json({ answer, language });
@@ -242,13 +266,15 @@ router.post('/ask', validation, async (req, res, next) => {
  * @desc    Return last 20 coach conversations for the authenticated user
  * @access  Protected
  */
-router.get('/history', async (req, res, next) => {
+router.get("/history", async (req, res, next) => {
   try {
-    const logs = await CoachLog
-      .find({ userId: req.user._id, flagged: { $ne: true } })
+    const logs = await CoachLog.find({
+      userId: req.user._id,
+      flagged: { $ne: true },
+    })
       .sort({ createdAt: -1 })
       .limit(20)
-      .select('question answer language createdAt latencyMs')
+      .select("question answer language createdAt latencyMs")
       .lean();
 
     return res.status(200).json({ history: logs, count: logs.length });

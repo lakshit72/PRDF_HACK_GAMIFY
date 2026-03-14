@@ -26,11 +26,11 @@
  *    Tax saved at 20% slab
  */
 
-import { Router }  from 'express';
-import mongoose    from 'mongoose';
-import { body, validationResult } from 'express-validator';
-import authMiddleware from './middleware/auth.js';
-import User           from './models/User.js';
+import { Router } from "express";
+import mongoose from "mongoose";
+import { body, validationResult } from "express-validator";
+import authMiddleware from "../middleware/auth.js";
+import User from "../models/User.js";
 
 const router = Router();
 router.use(authMiddleware);
@@ -39,11 +39,11 @@ router.use(authMiddleware);
 // CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
 
-const DEDUCTION_80C_CAP      = 150_000;   // ₹1,50,000
-const DEDUCTION_80CCD1B_CAP  = 50_000;    // ₹50,000
-const MAX_TOTAL_DEDUCTION     = DEDUCTION_80C_CAP + DEDUCTION_80CCD1B_CAP; // ₹2,00,000
+const DEDUCTION_80C_CAP = 150_000; // ₹1,50,000
+const DEDUCTION_80CCD1B_CAP = 50_000; // ₹50,000
+const MAX_TOTAL_DEDUCTION = DEDUCTION_80C_CAP + DEDUCTION_80CCD1B_CAP; // ₹2,00,000
 
-const SURCHARGE_RATE  = 0.04; // 4% health & education cess (applied on top of slab tax)
+const SURCHARGE_RATE = 0.04; // 4% health & education cess (applied on top of slab tax)
 
 /**
  * Old regime tax slabs (FY 2024-25)
@@ -51,10 +51,10 @@ const SURCHARGE_RATE  = 0.04; // 4% health & education cess (applied on top of s
  * upper_limit = Infinity for the top slab.
  */
 const OLD_REGIME_SLABS = [
-  [0,           250_000,   0.00],
-  [250_000,     500_000,   0.05],
-  [500_000,   1_000_000,   0.20],
-  [1_000_000, Infinity,    0.30],
+  [0, 250_000, 0.0],
+  [250_000, 500_000, 0.05],
+  [500_000, 1_000_000, 0.2],
+  [1_000_000, Infinity, 0.3],
 ];
 
 const PRAN_REGEX = /^[A-Z0-9]{12}$/i;
@@ -66,39 +66,40 @@ const PRAN_REGEX = /^[A-Z0-9]{12}$/i;
 const contributionSchema = new mongoose.Schema(
   {
     userId: {
-      type:     mongoose.Schema.Types.ObjectId,
-      ref:      'User',
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
       required: true,
-      index:    true,
+      index: true,
     },
     amount: {
-      type:     Number,
+      type: Number,
       required: true,
-      min:      [1, 'Contribution must be at least ₹1'],
+      min: [1, "Contribution must be at least ₹1"],
     },
     date: {
-      type:    Date,
+      type: Date,
       default: Date.now,
     },
     type: {
-      type:     String,
-      enum:     ['one-time', 'monthly'],
+      type: String,
+      enum: ["one-time", "monthly"],
       required: true,
     },
     status: {
-      type:    String,
-      enum:    ['pending', 'processed', 'failed'],
-      default: 'processed',  // mock gateway always succeeds instantly
+      type: String,
+      enum: ["pending", "processed", "failed"],
+      default: "processed", // mock gateway always succeeds instantly
     },
     referenceId: {
-      type:    String,       // mock transaction reference
+      type: String, // mock transaction reference
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-const Contribution = mongoose.models.Contribution
-  || mongoose.model('Contribution', contributionSchema);
+const Contribution =
+  mongoose.models.Contribution ||
+  mongoose.model("Contribution", contributionSchema);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TAX CALCULATION HELPERS
@@ -124,8 +125,8 @@ const computeTax = (taxableIncome) => {
     slabTax += taxableInSlab * rate;
   }
 
-  const cess      = Math.round(slabTax * SURCHARGE_RATE);
-  const totalTax  = Math.round(slabTax + cess);
+  const cess = Math.round(slabTax * SURCHARGE_RATE);
+  const totalTax = Math.round(slabTax + cess);
 
   return { slabTax: Math.round(slabTax), cess, totalTax };
 };
@@ -144,10 +145,10 @@ const computeTax = (taxableIncome) => {
  * @returns {{ deduction80C: number, deduction80CCD1B: number, totalDeduction: number }}
  */
 const splitNpsDeduction = (npsContribution) => {
-  const deduction80C     = Math.min(npsContribution, DEDUCTION_80C_CAP);
-  const remaining        = npsContribution - deduction80C;
+  const deduction80C = Math.min(npsContribution, DEDUCTION_80C_CAP);
+  const remaining = npsContribution - deduction80C;
   const deduction80CCD1B = Math.min(remaining, DEDUCTION_80CCD1B_CAP);
-  const totalDeduction   = deduction80C + deduction80CCD1B;
+  const totalDeduction = deduction80C + deduction80CCD1B;
 
   return { deduction80C, deduction80CCD1B, totalDeduction };
 };
@@ -178,7 +179,7 @@ const getMarginalRate = (taxableIncome) => {
  * Creates a mock transaction ID for the NPS gateway (e.g., "NPS-20240601-A3F9K2").
  */
 const generateMockReferenceId = () => {
-  const date   = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const date = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const suffix = Math.random().toString(36).substring(2, 8).toUpperCase();
   return `NPS-${date}-${suffix}`;
 };
@@ -226,15 +227,17 @@ const handleValidation = (req, res) => {
  *   }
  */
 router.post(
-  '/tax/calculate',
+  "/tax/calculate",
   [
-    body('annualIncome')
-      .isFloat({ min: 1 }).withMessage('annualIncome must be a positive number'),
-    body('npsContribution')
-      .isFloat({ min: 0 }).withMessage('npsContribution must be a non-negative number')
+    body("annualIncome")
+      .isFloat({ min: 1 })
+      .withMessage("annualIncome must be a positive number"),
+    body("npsContribution")
+      .isFloat({ min: 0 })
+      .withMessage("npsContribution must be a non-negative number")
       .custom((val, { req }) => {
         if (parseFloat(val) > parseFloat(req.body.annualIncome)) {
-          throw new Error('npsContribution cannot exceed annualIncome');
+          throw new Error("npsContribution cannot exceed annualIncome");
         }
         return true;
       }),
@@ -242,7 +245,7 @@ router.post(
   (req, res) => {
     if (handleValidation(req, res)) return;
 
-    const annualIncome    = Math.round(parseFloat(req.body.annualIncome));
+    const annualIncome = Math.round(parseFloat(req.body.annualIncome));
     const npsContribution = Math.round(parseFloat(req.body.npsContribution));
 
     // Split NPS contribution across sections
@@ -251,29 +254,39 @@ router.post(
 
     // Taxable incomes
     const taxableIncomeWithout = annualIncome;
-    const taxableIncomeWith    = Math.max(0, annualIncome - totalDeduction);
+    const taxableIncomeWith = Math.max(0, annualIncome - totalDeduction);
 
     // Tax computations
     const taxWithout = computeTax(taxableIncomeWithout);
-    const taxWith    = computeTax(taxableIncomeWith);
+    const taxWith = computeTax(taxableIncomeWith);
 
-    const totalTaxSaved     = Math.max(0, taxWithout.totalTax - taxWith.totalTax);
-    const effectiveTaxRate  = computeEffectiveTaxRate(taxWith.totalTax, annualIncome);
-    const marginalRate      = `${Math.round(getMarginalRate(taxableIncomeWithout) * 100)}%`;
+    const totalTaxSaved = Math.max(0, taxWithout.totalTax - taxWith.totalTax);
+    const effectiveTaxRate = computeEffectiveTaxRate(
+      taxWith.totalTax,
+      annualIncome,
+    );
+    const marginalRate = `${Math.round(getMarginalRate(taxableIncomeWithout) * 100)}%`;
 
     // Slab breakdown for UX (which bands are touched at this income)
-    const slabBreakdown = OLD_REGIME_SLABS
-      .filter(([lower]) => taxableIncomeWithout > lower)
-      .map(([lower, upper, rate]) => ({
-        slab:         upper === Infinity
-                        ? `Above ₹${(lower / 100_000).toFixed(0)}L`
-                        : `₹${(lower / 100_000).toFixed(1)}L – ₹${(upper / 100_000).toFixed(1)}L`,
-        rate:         `${rate * 100}%`,
-        taxableAmount: Math.max(0, Math.min(taxableIncomeWithout, upper === Infinity ? taxableIncomeWithout : upper) - lower),
-      }));
+    const slabBreakdown = OLD_REGIME_SLABS.filter(
+      ([lower]) => taxableIncomeWithout > lower,
+    ).map(([lower, upper, rate]) => ({
+      slab:
+        upper === Infinity
+          ? `Above ₹${(lower / 100_000).toFixed(0)}L`
+          : `₹${(lower / 100_000).toFixed(1)}L – ₹${(upper / 100_000).toFixed(1)}L`,
+      rate: `${rate * 100}%`,
+      taxableAmount: Math.max(
+        0,
+        Math.min(
+          taxableIncomeWithout,
+          upper === Infinity ? taxableIncomeWithout : upper,
+        ) - lower,
+      ),
+    }));
 
     return res.status(200).json({
-      grossIncome:           annualIncome,
+      grossIncome: annualIncome,
       npsContribution,
       deduction80C,
       deduction80CCD1B,
@@ -286,10 +299,10 @@ router.post(
       effectiveTaxRate,
       marginalRate,
       slabBreakdown,
-      regime:                'old',
-      note:                  'Calculations are indicative. Consult a tax professional for filing.',
+      regime: "old",
+      note: "Calculations are indicative. Consult a tax professional for filing.",
     });
-  }
+  },
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -304,11 +317,15 @@ router.post(
  * @access  Protected
  */
 router.post(
-  '/contribute/link-pran',
+  "/contribute/link-pran",
   [
-    body('pran')
-      .isString().trim().notEmpty().withMessage('PRAN is required')
-      .matches(PRAN_REGEX).withMessage('PRAN must be exactly 12 alphanumeric characters'),
+    body("pran")
+      .isString()
+      .trim()
+      .notEmpty()
+      .withMessage("PRAN is required")
+      .matches(PRAN_REGEX)
+      .withMessage("PRAN must be exactly 12 alphanumeric characters"),
   ],
   async (req, res, next) => {
     if (handleValidation(req, res)) return;
@@ -323,17 +340,21 @@ router.post(
       }).lean();
 
       if (conflict) {
-        return res.status(409).json({ error: 'This PRAN is already linked to another account' });
+        return res
+          .status(409)
+          .json({ error: "This PRAN is already linked to another account" });
       }
 
       await User.findByIdAndUpdate(req.user._id, { $set: { pran } });
 
       return res.status(200).json({
-        message: 'PRAN linked successfully',
+        message: "PRAN linked successfully",
         pran,
       });
-    } catch (err) { next(err); }
-  }
+    } catch (err) {
+      next(err);
+    }
+  },
 );
 
 // ── POST /api/contribute/make ─────────────────────────────────────────────────
@@ -344,19 +365,21 @@ router.post(
  * @access  Protected
  */
 router.post(
-  '/contribute/make',
+  "/contribute/make",
   [
-    body('amount')
-      .isFloat({ min: 500 }).withMessage('Minimum contribution is ₹500'),
-    body('frequency')
-      .isIn(['one-time', 'monthly']).withMessage('frequency must be "one-time" or "monthly"'),
+    body("amount")
+      .isFloat({ min: 500 })
+      .withMessage("Minimum contribution is ₹500"),
+    body("frequency")
+      .isIn(["one-time", "monthly"])
+      .withMessage('frequency must be "one-time" or "monthly"'),
   ],
   async (req, res, next) => {
     if (handleValidation(req, res)) return;
 
     try {
-      const userId    = req.user._id;
-      const amount    = Math.round(parseFloat(req.body.amount));
+      const userId = req.user._id;
+      const amount = Math.round(parseFloat(req.body.amount));
       const frequency = req.body.frequency;
 
       const referenceId = generateMockReferenceId();
@@ -365,9 +388,9 @@ router.post(
       const contribution = await Contribution.create({
         userId,
         amount,
-        date:        new Date(),
-        type:        frequency,
-        status:      'processed',
+        date: new Date(),
+        type: frequency,
+        status: "processed",
         referenceId,
       });
 
@@ -377,32 +400,34 @@ router.post(
           npsContributions: {
             amount,
             date: contribution.date,
-            type: 'employee',
+            type: "employee",
           },
         },
       });
 
       // For monthly contributions, flag auto-debit as enabled
-      if (frequency === 'monthly') {
+      if (frequency === "monthly") {
         await User.findByIdAndUpdate(userId, {
           $set: {
-            'autoDebit.enabled': true,
-            'autoDebit.amount':  amount,
+            "autoDebit.enabled": true,
+            "autoDebit.amount": amount,
           },
         });
       }
 
       return res.status(201).json({
-        message:        'Contribution recorded',
+        message: "Contribution recorded",
         contributionId: contribution._id,
         referenceId,
         amount,
         frequency,
-        date:           contribution.date,
-        status:         contribution.status,
+        date: contribution.date,
+        status: contribution.status,
       });
-    } catch (err) { next(err); }
-  }
+    } catch (err) {
+      next(err);
+    }
+  },
 );
 
 // ── GET /api/contribute/history ───────────────────────────────────────────────
@@ -412,19 +437,18 @@ router.post(
  * @desc    Return contribution history for the authenticated user
  * @access  Protected
  */
-router.get('/contribute/history', async (req, res, next) => {
+router.get("/contribute/history", async (req, res, next) => {
   try {
     const userId = req.user._id;
     const { page = 1, limit = 20, type } = req.query;
 
     const filter = { userId };
-    if (type && ['one-time', 'monthly'].includes(type)) filter.type = type;
+    if (type && ["one-time", "monthly"].includes(type)) filter.type = type;
 
-    const skip  = (parseInt(page) - 1) * parseInt(limit);
+    const skip = (parseInt(page) - 1) * parseInt(limit);
     const total = await Contribution.countDocuments(filter);
 
-    const contributions = await Contribution
-      .find(filter)
+    const contributions = await Contribution.find(filter)
       .sort({ date: -1 })
       .skip(skip)
       .limit(parseInt(limit))
@@ -435,41 +459,43 @@ router.get('/contribute/history', async (req, res, next) => {
       { $match: { userId: new mongoose.Types.ObjectId(userId) } },
       {
         $group: {
-          _id:               null,
-          totalContributed:  { $sum: '$amount' },
+          _id: null,
+          totalContributed: { $sum: "$amount" },
           contributionCount: { $sum: 1 },
-          avgContribution:   { $avg: '$amount' },
-          firstContribution: { $min: '$date' },
-          lastContribution:  { $max: '$date' },
+          avgContribution: { $avg: "$amount" },
+          firstContribution: { $min: "$date" },
+          lastContribution: { $max: "$date" },
         },
       },
     ]);
 
     const stats = summary[0] ?? {
-      totalContributed:  0,
+      totalContributed: 0,
       contributionCount: 0,
-      avgContribution:   0,
+      avgContribution: 0,
       firstContribution: null,
-      lastContribution:  null,
+      lastContribution: null,
     };
 
     return res.status(200).json({
       contributions,
       pagination: {
         total,
-        page:       parseInt(page),
-        limit:      parseInt(limit),
+        page: parseInt(page),
+        limit: parseInt(limit),
         totalPages: Math.ceil(total / parseInt(limit)),
       },
       summary: {
-        totalContributed:  Math.round(stats.totalContributed),
+        totalContributed: Math.round(stats.totalContributed),
         contributionCount: stats.contributionCount,
-        avgContribution:   Math.round(stats.avgContribution),
+        avgContribution: Math.round(stats.avgContribution),
         firstContribution: stats.firstContribution,
-        lastContribution:  stats.lastContribution,
+        lastContribution: stats.lastContribution,
       },
     });
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ── POST /api/contribute/set-autodebit ────────────────────────────────────────
@@ -480,15 +506,18 @@ router.get('/contribute/history', async (req, res, next) => {
  * @access  Protected
  */
 router.post(
-  '/contribute/set-autodebit',
+  "/contribute/set-autodebit",
   [
-    body('amount')
-      .isFloat({ min: 500 }).withMessage('Minimum auto-debit amount is ₹500'),
-    body('dayOfMonth')
-      .isInt({ min: 1, max: 28 }).withMessage('dayOfMonth must be between 1 and 28'),
-    body('enabled')
+    body("amount")
+      .isFloat({ min: 500 })
+      .withMessage("Minimum auto-debit amount is ₹500"),
+    body("dayOfMonth")
+      .isInt({ min: 1, max: 28 })
+      .withMessage("dayOfMonth must be between 1 and 28"),
+    body("enabled")
       .optional()
-      .isBoolean().withMessage('enabled must be a boolean'),
+      .isBoolean()
+      .withMessage("enabled must be a boolean"),
   ],
   async (req, res, next) => {
     if (handleValidation(req, res)) return;
@@ -498,24 +527,26 @@ router.post(
 
       await User.findByIdAndUpdate(req.user._id, {
         $set: {
-          'autoDebit.enabled':    Boolean(enabled),
-          'autoDebit.amount':     Math.round(parseFloat(amount)),
-          'autoDebit.dayOfMonth': parseInt(dayOfMonth),
+          "autoDebit.enabled": Boolean(enabled),
+          "autoDebit.amount": Math.round(parseFloat(amount)),
+          "autoDebit.dayOfMonth": parseInt(dayOfMonth),
         },
       });
 
       return res.status(200).json({
-        message:    enabled
-                      ? `Auto-debit of ₹${Math.round(amount)} set for day ${dayOfMonth} of every month`
-                      : 'Auto-debit disabled',
+        message: enabled
+          ? `Auto-debit of ₹${Math.round(amount)} set for day ${dayOfMonth} of every month`
+          : "Auto-debit disabled",
         autoDebit: {
-          enabled:    Boolean(enabled),
-          amount:     Math.round(parseFloat(amount)),
+          enabled: Boolean(enabled),
+          amount: Math.round(parseFloat(amount)),
           dayOfMonth: parseInt(dayOfMonth),
         },
       });
-    } catch (err) { next(err); }
-  }
+    } catch (err) {
+      next(err);
+    }
+  },
 );
 
 // ─────────────────────────────────────────────────────────────────────────────

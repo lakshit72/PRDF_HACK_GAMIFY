@@ -12,12 +12,12 @@
  *   app.use('/api/gamification', gamificationRoutes);
  */
 
-import { Router }  from 'express';
-import mongoose    from 'mongoose';
-import moment      from 'moment';
-import { body, validationResult } from 'express-validator';
-import authMiddleware from './middleware/auth.js';
-import User           from './models/User.js';
+import { Router } from "express";
+import mongoose from "mongoose";
+import moment from "moment";
+import { body, validationResult } from "express-validator";
+import authMiddleware from "../middleware/auth.js";
+import User from "../models/User.js";
 
 const router = Router();
 router.use(authMiddleware); // every route in this file is protected
@@ -29,36 +29,36 @@ router.use(authMiddleware); // every route in this file is protected
 /** All available quests. Add more here and they will automatically appear in GET /quests. */
 const QUESTS = [
   {
-    id:          'complete_3_modules',
-    description: 'Complete 3 learning modules',
-    target:      3,
-    type:        'modules',
-    icon:        '📚',
-    reward:      'Knowledge Seeker badge',
+    id: "complete_3_modules",
+    description: "Complete 3 learning modules",
+    target: 3,
+    type: "modules",
+    icon: "📚",
+    reward: "Knowledge Seeker badge",
   },
   {
-    id:          'first_contribution',
-    description: 'Make your first NPS contribution',
-    target:      1,
-    type:        'contributions',
-    icon:        '💰',
-    reward:      'First Step badge',
+    id: "first_contribution",
+    description: "Make your first NPS contribution",
+    target: 1,
+    type: "contributions",
+    icon: "💰",
+    reward: "First Step badge",
   },
   {
-    id:          '7day_streak',
-    description: 'Maintain a 7-day learning streak',
-    target:      7,
-    type:        'streak',
-    icon:        '🔥',
-    reward:      'On Fire badge',
+    id: "7day_streak",
+    description: "Maintain a 7-day learning streak",
+    target: 7,
+    type: "streak",
+    icon: "🔥",
+    reward: "On Fire badge",
   },
   {
-    id:          'complete_profile',
-    description: 'Fill in your full profile (age, income, PRAN)',
-    target:      1,
-    type:        'profile',
-    icon:        '👤',
-    reward:      'All Set badge',
+    id: "complete_profile",
+    description: "Fill in your full profile (age, income, PRAN)",
+    target: 1,
+    type: "profile",
+    icon: "👤",
+    reward: "All Set badge",
   },
 ];
 
@@ -68,92 +68,133 @@ const QUESTS = [
  */
 const QUIZ_BANK = {
   nps_basics: {
-    title: 'NPS Basics',
+    title: "NPS Basics",
     questions: [
       {
-        question: 'What does NPS stand for?',
-        options:  ['National Pension System', 'National Payment Scheme', 'New Provident Savings', 'National Protection Scheme'],
-        correct:  0,
+        question: "What does NPS stand for?",
+        options: [
+          "National Pension System",
+          "National Payment Scheme",
+          "New Provident Savings",
+          "National Protection Scheme",
+        ],
+        correct: 0,
       },
       {
-        question: 'At what age can you normally withdraw your full NPS corpus?',
-        options:  ['55', '58', '60', '65'],
-        correct:  2,
+        question: "At what age can you normally withdraw your full NPS corpus?",
+        options: ["55", "58", "60", "65"],
+        correct: 2,
       },
       {
-        question: 'Which regulator oversees NPS in India?',
-        options:  ['SEBI', 'RBI', 'IRDAI', 'PFRDA'],
-        correct:  3,
+        question: "Which regulator oversees NPS in India?",
+        options: ["SEBI", "RBI", "IRDAI", "PFRDA"],
+        correct: 3,
       },
       {
-        question: 'What is the minimum % of NPS corpus that must be used to buy an annuity at retirement?',
-        options:  ['20%', '30%', '40%', '50%'],
-        correct:  2,
+        question:
+          "What is the minimum % of NPS corpus that must be used to buy an annuity at retirement?",
+        options: ["20%", "30%", "40%", "50%"],
+        correct: 2,
       },
       {
-        question: 'Which NPS account allows partial withdrawals?',
-        options:  ['Tier I', 'Tier II', 'Both', 'Neither'],
-        correct:  0,
+        question: "Which NPS account allows partial withdrawals?",
+        options: ["Tier I", "Tier II", "Both", "Neither"],
+        correct: 0,
       },
     ],
   },
   tax_benefits: {
-    title: 'NPS Tax Benefits',
+    title: "NPS Tax Benefits",
     questions: [
       {
-        question: 'Under which section is the NPS deduction covered along with 80C?',
-        options:  ['80C', '80CCD(1)', '80CCD(2)', '80D'],
-        correct:  1,
+        question:
+          "Under which section is the NPS deduction covered along with 80C?",
+        options: ["80C", "80CCD(1)", "80CCD(2)", "80D"],
+        correct: 1,
       },
       {
-        question: 'What is the additional exclusive NPS deduction available over and above 80C?',
-        options:  ['25,000 under 80CCD(1B)', '50,000 under 80CCD(1B)', '75,000 under 80CCC', '1L under 80CCD(2)'],
-        correct:  1,
+        question:
+          "What is the additional exclusive NPS deduction available over and above 80C?",
+        options: [
+          "25,000 under 80CCD(1B)",
+          "50,000 under 80CCD(1B)",
+          "75,000 under 80CCC",
+          "1L under 80CCD(2)",
+        ],
+        correct: 1,
       },
       {
-        question: "Is the employer's NPS contribution taxable for the employee?",
-        options:  ['Yes, fully taxable', 'No, exempt under 80CCD(2) up to 10% of salary', 'Yes, but only above 1L', 'No, fully exempt without limit'],
-        correct:  1,
+        question:
+          "Is the employer's NPS contribution taxable for the employee?",
+        options: [
+          "Yes, fully taxable",
+          "No, exempt under 80CCD(2) up to 10% of salary",
+          "Yes, but only above 1L",
+          "No, fully exempt without limit",
+        ],
+        correct: 1,
       },
       {
-        question: 'What % of NPS corpus can be withdrawn tax-free as a lump sum at retirement?',
-        options:  ['25%', '40%', '60%', '100%'],
-        correct:  2,
+        question:
+          "What % of NPS corpus can be withdrawn tax-free as a lump sum at retirement?",
+        options: ["25%", "40%", "60%", "100%"],
+        correct: 2,
       },
       {
-        question: 'Is Tier II NPS eligible for tax deduction?',
-        options:  ['Yes, always', 'No, generally not', 'Only for government employees with a lock-in', 'Only for private sector'],
-        correct:  2,
+        question: "Is Tier II NPS eligible for tax deduction?",
+        options: [
+          "Yes, always",
+          "No, generally not",
+          "Only for government employees with a lock-in",
+          "Only for private sector",
+        ],
+        correct: 2,
       },
     ],
   },
   investment_basics: {
-    title: 'Investment Basics',
+    title: "Investment Basics",
     questions: [
       {
-        question: 'What is compound interest?',
-        options:  ['Interest on principal only', 'Interest on principal and accumulated interest', 'Fixed interest regardless of time', 'Interest paid annually only'],
-        correct:  1,
+        question: "What is compound interest?",
+        options: [
+          "Interest on principal only",
+          "Interest on principal and accumulated interest",
+          "Fixed interest regardless of time",
+          "Interest paid annually only",
+        ],
+        correct: 1,
       },
       {
-        question: 'Which NPS fund option gives the highest equity exposure?',
-        options:  ['Conservative Life Cycle Fund', 'Balanced Life Cycle Fund', 'Aggressive Life Cycle Fund', 'Fixed Return Fund'],
-        correct:  2,
+        question: "Which NPS fund option gives the highest equity exposure?",
+        options: [
+          "Conservative Life Cycle Fund",
+          "Balanced Life Cycle Fund",
+          "Aggressive Life Cycle Fund",
+          "Fixed Return Fund",
+        ],
+        correct: 2,
       },
       {
-        question: 'What does diversification primarily help reduce?',
-        options:  ['Returns', 'Inflation', 'Risk', 'Tax'],
-        correct:  2,
+        question: "What does diversification primarily help reduce?",
+        options: ["Returns", "Inflation", "Risk", "Tax"],
+        correct: 2,
       },
       {
-        question: 'If inflation is 6% and your return is 10%, what is the approximate real return?',
-        options:  ['16%', '4%', '6%', '10%'],
-        correct:  1,
+        question:
+          "If inflation is 6% and your return is 10%, what is the approximate real return?",
+        options: ["16%", "4%", "6%", "10%"],
+        correct: 1,
       },
       {
-        question: 'Which is generally the highest-risk NPS asset class?',
-        options:  ['Government Securities (G)', 'Corporate Bonds (C)', 'Equities (E)', 'Alternative Investments (A)'],
-        correct:  2,
+        question: "Which is generally the highest-risk NPS asset class?",
+        options: [
+          "Government Securities (G)",
+          "Corporate Bonds (C)",
+          "Equities (E)",
+          "Alternative Investments (A)",
+        ],
+        correct: 2,
       },
     ],
   },
@@ -162,16 +203,22 @@ const QUIZ_BANK = {
 const QUIZ_PASS_SCORE = 70;
 
 const FEEDBACK_MAP = [
-  { min: 90, text: 'Outstanding! You really know your NPS.' },
-  { min: 70, text: 'Passed! Solid understanding — keep it up.' },
-  { min: 50, text: 'Almost there. Review the module and try again.' },
-  { min: 0,  text: 'Keep learning — every attempt makes you wiser.' },
+  { min: 90, text: "Outstanding! You really know your NPS." },
+  { min: 70, text: "Passed! Solid understanding — keep it up." },
+  { min: 50, text: "Almost there. Review the module and try again." },
+  { min: 0, text: "Keep learning — every attempt makes you wiser." },
 ];
 
-const SCORE_WEIGHTS = { knowledge: 0.30, contribution: 0.30, consistency: 0.20, profile: 0.10, social: 0.10 };
-const SCORE_MIN     = 300;
-const SCORE_MAX     = 900;
-const STREAK_FULL   = 30; // streak days needed for 100% consistency score
+const SCORE_WEIGHTS = {
+  knowledge: 0.3,
+  contribution: 0.3,
+  consistency: 0.2,
+  profile: 0.1,
+  social: 0.1,
+};
+const SCORE_MIN = 300;
+const SCORE_MAX = 900;
+const STREAK_FULL = 30; // streak days needed for 100% consistency score
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MONGOOSE MODELS
@@ -179,66 +226,77 @@ const STREAK_FULL   = 30; // streak days needed for 100% consistency score
 
 const userStreakSchema = new mongoose.Schema(
   {
-    userId:           { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
-    currentStreak:    { type: Number, default: 0, min: 0 },
-    longestStreak:    { type: Number, default: 0, min: 0 },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      unique: true,
+    },
+    currentStreak: { type: Number, default: 0, min: 0 },
+    longestStreak: { type: Number, default: 0, min: 0 },
     lastActivityDate: { type: Date },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-const UserStreak = mongoose.models.UserStreak
-  || mongoose.model('UserStreak', userStreakSchema);
+const UserStreak =
+  mongoose.models.UserStreak || mongoose.model("UserStreak", userStreakSchema);
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 const quizResultSchema = new mongoose.Schema({
-  userId:      { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  moduleId:    { type: String, required: true },
-  score:       { type: Number, required: true, min: 0, max: 100 },
-  passed:      { type: Boolean, required: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  moduleId: { type: String, required: true },
+  score: { type: Number, required: true, min: 0, max: 100 },
+  passed: { type: Boolean, required: true },
   completedAt: { type: Date, default: Date.now },
 });
 quizResultSchema.index({ userId: 1, moduleId: 1 });
 
-const QuizResult = mongoose.models.QuizResult
-  || mongoose.model('QuizResult', quizResultSchema);
+const QuizResult =
+  mongoose.models.QuizResult || mongoose.model("QuizResult", quizResultSchema);
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 const questProgressSchema = new mongoose.Schema(
   {
-    userId:      { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    questId:     { type: String, required: true },
-    progress:    { type: Number, default: 0, min: 0, max: 100 },
-    completed:   { type: Boolean, default: false },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    questId: { type: String, required: true },
+    progress: { type: Number, default: 0, min: 0, max: 100 },
+    completed: { type: Boolean, default: false },
     completedAt: { type: Date },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 questProgressSchema.index({ userId: 1, questId: 1 }, { unique: true });
 
-const QuestProgress = mongoose.models.QuestProgress
-  || mongoose.model('QuestProgress', questProgressSchema);
+const QuestProgress =
+  mongoose.models.QuestProgress ||
+  mongoose.model("QuestProgress", questProgressSchema);
 
 // ─────────────────────────────────────────────────────────────────────────────
 
 const npsReadinessScoreSchema = new mongoose.Schema({
-  userId:       { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  score:        { type: Number, required: true },
-  components:   {
-    knowledge:    Number,
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  score: { type: Number, required: true },
+  components: {
+    knowledge: Number,
     contribution: Number,
-    consistency:  Number,
-    profile:      Number,
-    social:       Number,
+    consistency: Number,
+    profile: Number,
+    social: Number,
   },
   calculatedAt: { type: Date, default: Date.now },
 });
 npsReadinessScoreSchema.index({ userId: 1, calculatedAt: -1 });
 
-const NPSReadinessScore = mongoose.models.NPSReadinessScore
-  || mongoose.model('NPSReadinessScore', npsReadinessScoreSchema);
+const NPSReadinessScore =
+  mongoose.models.NPSReadinessScore ||
+  mongoose.model("NPSReadinessScore", npsReadinessScoreSchema);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PURE HELPERS
@@ -247,7 +305,7 @@ const NPSReadinessScore = mongoose.models.NPSReadinessScore
 const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
 
 const getFeedback = (score) =>
-  FEEDBACK_MAP.find((f) => score >= f.min)?.text ?? 'Keep going!';
+  FEEDBACK_MAP.find((f) => score >= f.min)?.text ?? "Keep going!";
 
 /**
  * computeStreakUpdate
@@ -260,19 +318,23 @@ const getFeedback = (score) =>
  */
 const computeStreakUpdate = (current, now) => {
   if (!current.lastActivityDate) {
-    return { currentStreak: 1, longestStreak: Math.max(1, current.longestStreak), lastActivityDate: now };
+    return {
+      currentStreak: 1,
+      longestStreak: Math.max(1, current.longestStreak),
+      lastActivityDate: now,
+    };
   }
 
-  const last     = moment(current.lastActivityDate).startOf('day');
-  const today    = moment(now).startOf('day');
-  const diffDays = today.diff(last, 'days');
+  const last = moment(current.lastActivityDate).startOf("day");
+  const today = moment(now).startOf("day");
+  const diffDays = today.diff(last, "days");
 
   if (diffDays === 0) return null; // idempotent
 
   const newStreak = diffDays === 1 ? current.currentStreak + 1 : 1;
   return {
-    currentStreak:    newStreak,
-    longestStreak:    Math.max(newStreak, current.longestStreak),
+    currentStreak: newStreak,
+    longestStreak: Math.max(newStreak, current.longestStreak),
     lastActivityDate: now,
   };
 };
@@ -283,16 +345,16 @@ const computeStreakUpdate = (current, now) => {
  */
 const computeNpsReadinessScore = (components) => {
   const weighted =
-    components.knowledge    * SCORE_WEIGHTS.knowledge    +
+    components.knowledge * SCORE_WEIGHTS.knowledge +
     components.contribution * SCORE_WEIGHTS.contribution +
-    components.consistency  * SCORE_WEIGHTS.consistency  +
-    components.profile      * SCORE_WEIGHTS.profile      +
-    components.social       * SCORE_WEIGHTS.social;
+    components.consistency * SCORE_WEIGHTS.consistency +
+    components.profile * SCORE_WEIGHTS.profile +
+    components.social * SCORE_WEIGHTS.social;
 
   return clamp(
     Math.round(SCORE_MIN + (weighted / 100) * (SCORE_MAX - SCORE_MIN)),
     SCORE_MIN,
-    SCORE_MAX
+    SCORE_MAX,
   );
 };
 
@@ -309,28 +371,28 @@ const updateQuestProgressForUser = async (userId, questId, increment = 1) => {
   await QuestProgress.findOneAndUpdate(
     { userId, questId },
     { $setOnInsert: { userId, questId, progress: 0, completed: false } },
-    { upsert: true }
+    { upsert: true },
   );
 
   const record = await QuestProgress.findOne({ userId, questId });
   if (record.completed) return record;
 
   // Convert stored % back to raw units, add increment, convert back to %
-  const rawCurrent   = (record.progress / 100) * questDef.target;
-  const rawNew       = rawCurrent + increment;
-  const newPct       = clamp(Math.round((rawNew / questDef.target) * 100), 0, 100);
+  const rawCurrent = (record.progress / 100) * questDef.target;
+  const rawNew = rawCurrent + increment;
+  const newPct = clamp(Math.round((rawNew / questDef.target) * 100), 0, 100);
   const nowCompleted = newPct >= 100;
 
   return QuestProgress.findOneAndUpdate(
     { userId, questId },
     {
       $set: {
-        progress:  newPct,
+        progress: newPct,
         completed: nowCompleted,
         ...(nowCompleted && { completedAt: new Date() }),
       },
     },
-    { new: true }
+    { new: true },
   );
 };
 
@@ -354,16 +416,24 @@ const handleValidation = (req, res) => {
  * @desc    Return authenticated user's streak info
  * @access  Protected
  */
-router.get('/streak', async (req, res, next) => {
+router.get("/streak", async (req, res, next) => {
   try {
     const streak = await UserStreak.findOne({ userId: req.user._id }).lean();
 
-    return res.status(200).json(
-      streak
-        ? { currentStreak: streak.currentStreak, longestStreak: streak.longestStreak, lastActivityDate: streak.lastActivityDate }
-        : { currentStreak: 0, longestStreak: 0, lastActivityDate: null }
-    );
-  } catch (err) { next(err); }
+    return res
+      .status(200)
+      .json(
+        streak
+          ? {
+              currentStreak: streak.currentStreak,
+              longestStreak: streak.longestStreak,
+              lastActivityDate: streak.lastActivityDate,
+            }
+          : { currentStreak: 0, longestStreak: 0, lastActivityDate: null },
+      );
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ── POST /activity ────────────────────────────────────────────────────────────
@@ -374,14 +444,18 @@ router.get('/streak', async (req, res, next) => {
  * @access  Protected
  */
 router.post(
-  '/activity',
-  [ body('activityType').isIn(['login', 'quiz', 'contribution']).withMessage('activityType must be login, quiz, or contribution') ],
+  "/activity",
+  [
+    body("activityType")
+      .isIn(["login", "quiz", "contribution"])
+      .withMessage("activityType must be login, quiz, or contribution"),
+  ],
   async (req, res, next) => {
     if (handleValidation(req, res)) return;
 
     try {
       const userId = req.user._id;
-      const now    = new Date();
+      const now = new Date();
 
       // Upsert streak doc
       let streak = await UserStreak.findOne({ userId });
@@ -396,33 +470,35 @@ router.post(
         // Sync 7-day-streak quest
         const pct = clamp(Math.round((streak.currentStreak / 7) * 100), 0, 100);
         await QuestProgress.findOneAndUpdate(
-          { userId, questId: '7day_streak' },
+          { userId, questId: "7day_streak" },
           {
             $set: {
-              progress:  pct,
+              progress: pct,
               completed: pct >= 100,
               ...(pct >= 100 && { completedAt: now }),
             },
-            $setOnInsert: { userId, questId: '7day_streak' },
+            $setOnInsert: { userId, questId: "7day_streak" },
           },
-          { upsert: true }
+          { upsert: true },
         );
 
         // If activity is a contribution, also bump that quest
-        if (req.body.activityType === 'contribution') {
-          await updateQuestProgressForUser(userId, 'first_contribution', 1);
+        if (req.body.activityType === "contribution") {
+          await updateQuestProgressForUser(userId, "first_contribution", 1);
         }
       }
 
       return res.status(200).json({
-        message:          update ? 'Activity recorded' : 'Activity already logged today',
-        currentStreak:    streak.currentStreak,
-        longestStreak:    streak.longestStreak,
+        message: update ? "Activity recorded" : "Activity already logged today",
+        currentStreak: streak.currentStreak,
+        longestStreak: streak.longestStreak,
         lastActivityDate: streak.lastActivityDate,
-        streakUpdated:    !!update,
+        streakUpdated: !!update,
       });
-    } catch (err) { next(err); }
-  }
+    } catch (err) {
+      next(err);
+    }
+  },
 );
 
 // ── POST /quiz/submit ─────────────────────────────────────────────────────────
@@ -433,51 +509,61 @@ router.post(
  * @access  Protected
  */
 router.post(
-  '/quiz/submit',
+  "/quiz/submit",
   [
-    body('moduleId')
-      .isString().notEmpty()
+    body("moduleId")
+      .isString()
+      .notEmpty()
       .custom((v) => {
-        if (!QUIZ_BANK[v]) throw new Error(`Unknown moduleId. Available: ${Object.keys(QUIZ_BANK).join(', ')}`);
+        if (!QUIZ_BANK[v])
+          throw new Error(
+            `Unknown moduleId. Available: ${Object.keys(QUIZ_BANK).join(", ")}`,
+          );
         return true;
       }),
-    body('answers').isArray({ min: 1 }).withMessage('answers must be a non-empty array'),
+    body("answers")
+      .isArray({ min: 1 })
+      .withMessage("answers must be a non-empty array"),
   ],
   async (req, res, next) => {
     if (handleValidation(req, res)) return;
 
     try {
       const { moduleId, answers } = req.body;
-      const userId                = req.user._id;
-      const module                = QUIZ_BANK[moduleId];
+      const userId = req.user._id;
+      const module = QUIZ_BANK[moduleId];
 
       // Grade
       let correct = 0;
       module.questions.forEach((q, i) => {
-        if (answers[i] !== undefined && Number(answers[i]) === q.correct) correct++;
+        if (answers[i] !== undefined && Number(answers[i]) === q.correct)
+          correct++;
       });
-      const score  = Math.round((correct / module.questions.length) * 100);
+      const score = Math.round((correct / module.questions.length) * 100);
       const passed = score >= QUIZ_PASS_SCORE;
 
       // Persist
       await QuizResult.create({ userId, moduleId, score, passed });
 
       // Distinct modules passed → drive 'complete_3_modules' quest
-      const distinctPassed = await QuizResult.distinct('moduleId', { userId, passed: true });
-      const passedCount    = distinctPassed.length;
-      const questPct       = clamp(Math.round((passedCount / 3) * 100), 0, 100);
+      const distinctPassed = await QuizResult.distinct("moduleId", {
+        userId,
+        passed: true,
+      });
+      const passedCount = distinctPassed.length;
+      const questPct = clamp(Math.round((passedCount / 3) * 100), 0, 100);
 
       await QuestProgress.findOneAndUpdate(
-        { userId, questId: 'complete_3_modules' },
+        { userId, questId: "complete_3_modules" },
         {
           $set: {
-            progress:  questPct,
+            progress: questPct,
             completed: questPct >= 100,
             ...(questPct >= 100 && { completedAt: new Date() }),
           },
-          $setOnInsert: { userId, questId: 'complete_3_modules' },
+          $setOnInsert: { userId, questId: "complete_3_modules" },
         },
-        { upsert: true }
+        { upsert: true },
       );
 
       // Quiz also counts as a daily activity for streak
@@ -492,13 +578,15 @@ router.post(
       return res.status(200).json({
         score,
         passed,
-        correctAnswers:        correct,
-        totalQuestions:        module.questions.length,
-        feedback:              getFeedback(score),
+        correctAnswers: correct,
+        totalQuestions: module.questions.length,
+        feedback: getFeedback(score),
         distinctModulesPassed: passedCount,
       });
-    } catch (err) { next(err); }
-  }
+    } catch (err) {
+      next(err);
+    }
+  },
 );
 
 // ── GET /quests ───────────────────────────────────────────────────────────────
@@ -508,23 +596,23 @@ router.post(
  * @desc    All quests with this user's progress
  * @access  Protected
  */
-router.get('/quests', async (req, res, next) => {
+router.get("/quests", async (req, res, next) => {
   try {
-    const userId   = req.user._id;
+    const userId = req.user._id;
     const progDocs = await QuestProgress.find({ userId }).lean();
-    const progMap  = Object.fromEntries(progDocs.map((p) => [p.questId, p]));
+    const progMap = Object.fromEntries(progDocs.map((p) => [p.questId, p]));
 
     const quests = QUESTS.map((q) => {
       const prog = progMap[q.id];
       return {
-        id:          q.id,
+        id: q.id,
         description: q.description,
-        icon:        q.icon,
-        reward:      q.reward,
-        target:      q.target,
-        type:        q.type,
-        progress:    prog?.progress    ?? 0,
-        completed:   prog?.completed   ?? false,
+        icon: q.icon,
+        reward: q.reward,
+        target: q.target,
+        type: q.type,
+        progress: prog?.progress ?? 0,
+        completed: prog?.completed ?? false,
         completedAt: prog?.completedAt ?? null,
       };
     });
@@ -532,9 +620,11 @@ router.get('/quests', async (req, res, next) => {
     return res.status(200).json({
       quests,
       completedCount: quests.filter((q) => q.completed).length,
-      totalQuests:    QUESTS.length,
+      totalQuests: QUESTS.length,
     });
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ── POST /quest/update ────────────────────────────────────────────────────────
@@ -545,31 +635,42 @@ router.get('/quests', async (req, res, next) => {
  * @access  Protected
  */
 router.post(
-  '/quest/update',
+  "/quest/update",
   [
-    body('questId')
-      .isString().notEmpty()
+    body("questId")
+      .isString()
+      .notEmpty()
       .custom((v) => {
-        if (!QUESTS.find((q) => q.id === v)) throw new Error(`Unknown questId "${v}"`);
+        if (!QUESTS.find((q) => q.id === v))
+          throw new Error(`Unknown questId "${v}"`);
         return true;
       }),
-    body('increment').optional().isFloat({ min: 0 }).withMessage('increment must be non-negative'),
+    body("increment")
+      .optional()
+      .isFloat({ min: 0 })
+      .withMessage("increment must be non-negative"),
   ],
   async (req, res, next) => {
     if (handleValidation(req, res)) return;
 
     try {
       const { questId, increment = 1 } = req.body;
-      const updated = await updateQuestProgressForUser(req.user._id, questId, increment);
+      const updated = await updateQuestProgressForUser(
+        req.user._id,
+        questId,
+        increment,
+      );
 
       return res.status(200).json({
         questId,
-        progress:    updated.progress,
-        completed:   updated.completed,
+        progress: updated.progress,
+        completed: updated.completed,
         completedAt: updated.completedAt ?? null,
       });
-    } catch (err) { next(err); }
-  }
+    } catch (err) {
+      next(err);
+    }
+  },
 );
 
 // ── GET /score ────────────────────────────────────────────────────────────────
@@ -579,31 +680,45 @@ router.post(
  * @desc    Compute and return the NPS Readiness Score (300-900)
  * @access  Protected
  */
-router.get('/score', async (req, res, next) => {
+router.get("/score", async (req, res, next) => {
   try {
     const userId = req.user._id;
 
     // Knowledge: average of all quiz scores this user has ever submitted
     const quizResults = await QuizResult.find({ userId }).lean();
-    const knowledgeScore = quizResults.length > 0
-      ? clamp(Math.round(quizResults.reduce((s, r) => s + r.score, 0) / quizResults.length), 0, 100)
-      : 0;
+    const knowledgeScore =
+      quizResults.length > 0
+        ? clamp(
+            Math.round(
+              quizResults.reduce((s, r) => s + r.score, 0) / quizResults.length,
+            ),
+            0,
+            100,
+          )
+        : 0;
 
     // Contribution: weight monthly contribution vs income (10% of income = full marks)
     const user = await User.findById(userId).lean();
     let contributionScore = 0;
     if (user?.npsContributions?.length > 0) {
       if (user.income > 0) {
-        const lastEmployeeContrib = [...user.npsContributions]
-          .filter((c) => c.type === 'employee')
-          .pop()?.amount ?? 0;
-        contributionScore = clamp(Math.round((lastEmployeeContrib / user.income) * 10 * 100), 0, 100);
+        const lastEmployeeContrib =
+          [...user.npsContributions].filter((c) => c.type === "employee").pop()
+            ?.amount ?? 0;
+        contributionScore = clamp(
+          Math.round((lastEmployeeContrib / user.income) * 10 * 100),
+          0,
+          100,
+        );
       } else {
         contributionScore = 50; // has contributions but no income set
       }
     }
     // Fallback: if 'first_contribution' quest is complete, give minimum 30
-    const fcQuest = await QuestProgress.findOne({ userId, questId: 'first_contribution' }).lean();
+    const fcQuest = await QuestProgress.findOne({
+      userId,
+      questId: "first_contribution",
+    }).lean();
     if (fcQuest?.completed && contributionScore < 30) contributionScore = 30;
 
     // Consistency: scale currentStreak up to STREAK_FULL days = 100 pts
@@ -613,42 +728,83 @@ router.get('/score', async (req, res, next) => {
       : 0;
 
     // Profile: 1 point each for pran, age, income (33 pts each)
-    const filledFields = ['pran', 'age', 'income'].filter((f) => user?.[f] != null).length;
+    const filledFields = ["pran", "age", "income"].filter(
+      (f) => user?.[f] != null,
+    ).length;
     const profileScore = Math.round((filledFields / 3) * 100);
 
     // Social: placeholder — engaged if streak >= 3
     const socialScore = (streak?.currentStreak ?? 0) >= 3 ? 100 : 0;
 
-    const components = { knowledge: knowledgeScore, contribution: contributionScore, consistency: consistencyScore, profile: profileScore, social: socialScore };
-    const score      = computeNpsReadinessScore(components);
+    const components = {
+      knowledge: knowledgeScore,
+      contribution: contributionScore,
+      consistency: consistencyScore,
+      profile: profileScore,
+      social: socialScore,
+    };
+    const score = computeNpsReadinessScore(components);
 
     // Persist for history
     await NPSReadinessScore.create({ userId, score, components });
 
     const tier =
-      score >= 750 ? 'Excellent' :
-      score >= 600 ? 'Good'      :
-      score >= 450 ? 'Fair'      :
-                     'Needs Work';
+      score >= 750
+        ? "Excellent"
+        : score >= 600
+          ? "Good"
+          : score >= 450
+            ? "Fair"
+            : "Needs Work";
 
     return res.status(200).json({
       score,
       tier,
       breakdown: {
-        knowledge:    { score: components.knowledge,    weight: '30%', label: 'NPS Knowledge' },
-        contribution: { score: components.contribution, weight: '30%', label: 'Contribution Habit' },
-        consistency:  { score: components.consistency,  weight: '20%', label: 'Learning Streak' },
-        profile:      { score: components.profile,      weight: '10%', label: 'Profile Completeness' },
-        social:       { score: components.social,       weight: '10%', label: 'Community Engagement' },
+        knowledge: {
+          score: components.knowledge,
+          weight: "30%",
+          label: "NPS Knowledge",
+        },
+        contribution: {
+          score: components.contribution,
+          weight: "30%",
+          label: "Contribution Habit",
+        },
+        consistency: {
+          score: components.consistency,
+          weight: "20%",
+          label: "Learning Streak",
+        },
+        profile: {
+          score: components.profile,
+          weight: "10%",
+          label: "Profile Completeness",
+        },
+        social: {
+          score: components.social,
+          weight: "10%",
+          label: "Community Engagement",
+        },
       },
       calculatedAt: new Date(),
     });
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EXPORTS – models available to other service files
 // ─────────────────────────────────────────────────────────────────────────────
 
-export { UserStreak, QuizResult, QuestProgress, NPSReadinessScore, updateQuestProgressForUser, QUESTS, QUIZ_BANK };
+export {
+  UserStreak,
+  QuizResult,
+  QuestProgress,
+  NPSReadinessScore,
+  updateQuestProgressForUser,
+  QUESTS,
+  QUIZ_BANK,
+};
 export default router;
