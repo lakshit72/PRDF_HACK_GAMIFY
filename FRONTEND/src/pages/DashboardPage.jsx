@@ -3,21 +3,32 @@
  * Main app view. Composes all dashboard widgets.
  * Skeleton loaders shown during initial data fetch.
  */
-import { useEffect } from 'react';
-import { useUserData } from '../context/UserDataContext.jsx';
-import Header        from '../components/dashboard/Header.jsx';
-import ScoreCard     from '../components/dashboard/ScoreCard.jsx';
-import StreakCard    from '../components/dashboard/StreakCard.jsx';
-import QuestCard    from '../components/dashboard/QuestCard.jsx';
-import FutureSelfCard from '../components/dashboard/FutureSelfCard.jsx';
-import QuickActions  from '../components/dashboard/QuickActions.jsx';
-import { ErrorBanner } from '../components/ui/index.jsx';
+import { useEffect } from "react";
+import { useUserData } from "../context/UserDataContext.jsx";
+import Header from "../components/dashboard/Header.jsx";
+import ScoreCard from "../components/dashboard/ScoreCard.jsx";
+import StreakCard from "../components/dashboard/StreakCard.jsx";
+import QuestCard from "../components/dashboard/QuestCard.jsx";
+import FutureSelfCard from "../components/dashboard/FutureSelfCard.jsx";
+import QuickActions from "../components/dashboard/QuickActions.jsx";
+import { ErrorBanner } from "../components/ui/index.jsx";
 
 export default function DashboardPage() {
-  const { profile, streak, score, quests, futureSelf, loading, error, refresh } = useUserData();
+  const {
+    profile,
+    streak,
+    score,
+    quests,
+    futureSelf,
+    loading,
+    error,
+    refresh,
+  } = useUserData();
 
   // Refresh on mount to get latest data
-  useEffect(() => { refresh(); }, []); // eslint-disable-line
+  useEffect(() => {
+    refresh();
+  }, []); // eslint-disable-line
 
   return (
     <div className="min-h-dvh">
@@ -41,7 +52,7 @@ export default function DashboardPage() {
           {/* Row 2: Streak + Quest (side by side) */}
           <div className="grid grid-cols-2 gap-4 animate-fade-up">
             <StreakCard streak={streak} loading={loading} />
-            <QuestCard  quests={quests} loading={loading} />
+            <QuestCard quests={quests} loading={loading} />
           </div>
 
           {/* Row 3: Future Self (full width) */}
@@ -64,7 +75,7 @@ export default function DashboardPage() {
           >
             ↻ Refresh
           </button>
-          {' · '}
+          {" · "}
           <span>Data updates in real time</span>
         </p>
       </div>
