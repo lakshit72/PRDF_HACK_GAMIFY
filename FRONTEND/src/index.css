@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html { font-family: 'DM Sans', sans-serif; scroll-behavior: smooth; }
+
+  body {
+    @apply bg-ink text-text-primary;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(245,197,66,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 80%, rgba(125,211,252,0.05) 0%, transparent 50%);
+    min-height: 100dvh;
+    overscroll-behavior: none;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
+}
+
+@layer components {
+  /* Glass card effect */
+  .card {
+    @apply bg-surface border border-border rounded-2xl p-5;
+    backdrop-filter: blur(12px);
+  }
+  .card-sm { @apply bg-surface border border-border rounded-xl p-4; }
+
+  /* Skeleton loader */
+  .skeleton {
+    @apply rounded-lg bg-surface-2;
+    background-size: 800px 100%;
+    background-image: linear-gradient(
+      90deg,
+      theme('colors.surface-2') 0%,
+      rgba(255,255,255,0.06) 50%,
+      theme('colors.surface-2') 100%
+    );
+    animation: shimmer 1.8s ease-in-out infinite;
+  }
+
+  /* Glow effects */
+  .glow-gold  { box-shadow: 0 0 30px rgba(245,197,66,0.15); }
+  .glow-frost { box-shadow: 0 0 30px rgba(125,211,252,0.12); }
+
+  /* Input base */
+  .input-base {
+    @apply w-full bg-surface-2 border border-border rounded-xl px-4 py-3
+           text-text-primary placeholder-muted font-body text-sm
+           focus:outline-none focus:border-gold/60 focus:ring-1 focus:ring-gold/30
+           transition-all duration-200;
+  }
+
+  /* Primary button */
+  .btn-primary {
+    @apply w-full bg-gold text-ink font-display font-bold py-3.5 px-6 rounded-xl
+           hover:bg-gold-dim active:scale-95 transition-all duration-200
+           disabled:opacity-40 disabled:cursor-not-allowed text-sm tracking-wide;
+  }
+
+  /* Ghost button */
+  .btn-ghost {
+    @apply px-4 py-2.5 rounded-xl border border-border text-text-secondary text-sm
+           hover:border-gold/40 hover:text-text-primary transition-all duration-200 font-body;
+  }
+
+  /* Step indicator dot */
+  .step-dot {
+    @apply w-2 h-2 rounded-full transition-all duration-300;
+  }
+}
+
+/* Staggered animation delays for lists */
+.stagger > *:nth-child(1) { animation-delay: 0ms; }
+.stagger > *:nth-child(2) { animation-delay: 80ms; }
+.stagger > *:nth-child(3) { animation-delay: 160ms; }
+.stagger > *:nth-child(4) { animation-delay: 240ms; }
+.stagger > *:nth-child(5) { animation-delay: 320ms; }
+.stagger > *:nth-child(6) { animation-delay: 400ms; }
