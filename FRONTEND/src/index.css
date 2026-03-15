@@ -2,82 +2,175 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Google Fonts: Rajdhani (display) + Noto Sans (body) + Roboto Mono ──────── */
+/* Import is handled in index.html */
+
 @layer base {
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
-  html { font-family: 'DM Sans', sans-serif; scroll-behavior: smooth; }
+  html { font-family: 'Noto Sans', sans-serif; scroll-behavior: smooth; }
 
   body {
-    @apply bg-ink text-text-primary;
+    @apply bg-surface-2 text-text-primary;
     background-image:
-      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(245,197,66,0.08) 0%, transparent 60%),
-      radial-gradient(ellipse 60% 40% at 80% 80%, rgba(125,211,252,0.05) 0%, transparent 50%);
+      linear-gradient(180deg, #F0F4FA 0%, #FFFFFF 100%);
     min-height: 100dvh;
     overscroll-behavior: none;
   }
 
+  h1, h2, h3, h4, h5 {
+    font-family: 'Rajdhani', 'Noto Sans', sans-serif;
+    font-weight: 700;
+    color: #001F4D;
+  }
+
   /* Scrollbar styling */
-  ::-webkit-scrollbar { width: 4px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: #F0F4FA; }
+  ::-webkit-scrollbar-thumb { background: #C8D6E8; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #001F4D; }
+
+  /* Selection color */
+  ::selection { background: rgba(244,121,32,0.2); color: #001F4D; }
 }
 
 @layer components {
-  /* Glass card effect */
-  .card {
-    @apply bg-surface border border-border rounded-2xl p-5;
-    backdrop-filter: blur(12px);
-  }
-  .card-sm { @apply bg-surface border border-border rounded-xl p-4; }
 
-  /* Skeleton loader */
+  /* ── Cards ─────────────────────────────────────────────────────────────── */
+  .card {
+    @apply bg-white border border-border rounded-xl p-5;
+    box-shadow: 0 2px 12px rgba(0,31,77,0.08), 0 1px 3px rgba(0,31,77,0.05);
+  }
+  .card-sm {
+    @apply bg-white border border-border rounded-lg p-4;
+    box-shadow: 0 1px 6px rgba(0,31,77,0.07);
+  }
+
+  /* ── NPS Navy header band ───────────────────────────────────────────────── */
+  .nps-header {
+    background: linear-gradient(135deg, #001F4D 0%, #003580 60%, #00459A 100%);
+    border-bottom: 3px solid #F47920;
+  }
+
+  /* ── Tricolor accent bar (India flag: saffron–white–green) ──────────────── */
+  .tricolor-bar {
+    height: 4px;
+    background: linear-gradient(90deg, #F47920 33.3%, #FFFFFF 33.3%, #FFFFFF 66.6%, #138808 66.6%);
+    border-radius: 2px;
+  }
+
+  /* ── Skeleton loader ────────────────────────────────────────────────────── */
   .skeleton {
-    @apply rounded-lg bg-surface-2;
+    @apply rounded-lg;
+    background: #E8EEF5;
     background-size: 800px 100%;
     background-image: linear-gradient(
       90deg,
-      theme('colors.surface-2') 0%,
-      rgba(255,255,255,0.06) 50%,
-      theme('colors.surface-2') 100%
+      #E8EEF5 0%,
+      #F5F8FC 50%,
+      #E8EEF5 100%
     );
     animation: shimmer 1.8s ease-in-out infinite;
   }
 
-  /* Glow effects */
-  .glow-gold  { box-shadow: 0 0 30px rgba(245,197,66,0.15); }
-  .glow-frost { box-shadow: 0 0 30px rgba(125,211,252,0.12); }
+  /* ── Glow effects ──────────────────────────────────────────────────────── */
+  .glow-gold  { box-shadow: 0 0 20px rgba(244,121,32,0.25); }
+  .glow-frost { box-shadow: 0 0 20px rgba(21,101,192,0.18); }
+  .glow-sage  { box-shadow: 0 0 20px rgba(46,125,50,0.18);  }
 
-  /* Input base */
+  /* ── Input base ─────────────────────────────────────────────────────────── */
   .input-base {
-    @apply w-full bg-surface-2 border border-border rounded-xl px-4 py-3
+    @apply w-full bg-white border border-border rounded-lg px-4 py-3
            text-text-primary placeholder-muted font-body text-sm
-           focus:outline-none focus:border-gold/60 focus:ring-1 focus:ring-gold/30
+           focus:outline-none focus:border-frost focus:ring-2 focus:ring-frost/20
            transition-all duration-200;
+    box-shadow: inset 0 1px 3px rgba(0,31,77,0.06);
   }
+  .input-base:hover { border-color: #1565C0; }
 
-  /* Primary button */
+  /* ── Primary button (NPS Saffron Orange) ───────────────────────────────── */
   .btn-primary {
-    @apply w-full bg-gold text-ink font-display font-bold py-3.5 px-6 rounded-xl
-           hover:bg-gold-dim active:scale-95 transition-all duration-200
-           disabled:opacity-40 disabled:cursor-not-allowed text-sm tracking-wide;
+    @apply w-full text-white font-display font-bold py-3.5 px-6 rounded-lg
+           active:scale-95 transition-all duration-200
+           disabled:opacity-50 disabled:cursor-not-allowed text-sm tracking-wider uppercase;
+    background: linear-gradient(135deg, #F47920 0%, #E06810 100%);
+    box-shadow: 0 2px 8px rgba(244,121,32,0.35);
+    letter-spacing: 0.08em;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, #E06810 0%, #C85F10 100%);
+    box-shadow: 0 4px 14px rgba(244,121,32,0.45);
   }
 
-  /* Ghost button */
+  /* ── Ghost button (Navy outline) ───────────────────────────────────────── */
   .btn-ghost {
-    @apply px-4 py-2.5 rounded-xl border border-border text-text-secondary text-sm
-           hover:border-gold/40 hover:text-text-primary transition-all duration-200 font-body;
+    @apply px-4 py-2.5 rounded-lg border text-sm transition-all duration-200 font-body font-medium;
+    border-color: #C8D6E8;
+    color: #001F4D;
+  }
+  .btn-ghost:hover {
+    border-color: #001F4D;
+    background: rgba(0,31,77,0.04);
   }
 
-  /* Step indicator dot */
-  .step-dot {
-    @apply w-2 h-2 rounded-full transition-all duration-300;
+  /* ── Navy button (secondary CTA) ───────────────────────────────────────── */
+  .btn-navy {
+    @apply px-5 py-2.5 rounded-lg font-display font-bold text-sm text-white
+           transition-all duration-200 active:scale-95;
+    background: #001F4D;
+    letter-spacing: 0.05em;
+  }
+  .btn-navy:hover { background: #003580; }
+
+  /* ── Step indicator dot ─────────────────────────────────────────────────── */
+  .step-dot { @apply w-2 h-2 rounded-full transition-all duration-300; }
+
+  /* ── Section heading with saffron underline ────────────────────────────── */
+  .section-heading {
+    @apply font-display font-bold text-ink text-xl mb-1;
+    position: relative;
+  }
+  .section-heading::after {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 3px;
+    background: #F47920;
+    border-radius: 2px;
+    margin-top: 6px;
+  }
+
+  /* ── Stat badge ─────────────────────────────────────────────────────────── */
+  .stat-badge {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-body font-semibold border;
+    border-color: #C8D6E8;
+    background: #F0F4FA;
+    color: #001F4D;
+  }
+
+  /* ── NPS score tier chips ──────────────────────────────────────────────── */
+  .tier-excellent { background: #E8F5E9; color: #2E7D32; border-color: #A5D6A7; }
+  .tier-good      { background: #FFF3E0; color: #E65100; border-color: #FFCC80; }
+  .tier-fair      { background: #FFF8E1; color: #F57F17; border-color: #FFE082; }
+  .tier-poor      { background: #FAFAFA; color: #757575; border-color: #E0E0E0; }
+
+  /* ── Info banner ────────────────────────────────────────────────────────── */
+  .info-banner {
+    @apply flex items-start gap-3 p-4 rounded-lg border;
+    background: #EBF3FF;
+    border-color: #BBDEFB;
   }
 }
 
-/* Staggered animation delays for lists */
+/* ── Staggered animation delays ────────────────────────────────────────────── */
 .stagger > *:nth-child(1) { animation-delay: 0ms; }
-.stagger > *:nth-child(2) { animation-delay: 80ms; }
-.stagger > *:nth-child(3) { animation-delay: 160ms; }
-.stagger > *:nth-child(4) { animation-delay: 240ms; }
-.stagger > *:nth-child(5) { animation-delay: 320ms; }
-.stagger > *:nth-child(6) { animation-delay: 400ms; }
+.stagger > *:nth-child(2) { animation-delay: 60ms; }
+.stagger > *:nth-child(3) { animation-delay: 120ms; }
+.stagger > *:nth-child(4) { animation-delay: 180ms; }
+.stagger > *:nth-child(5) { animation-delay: 240ms; }
+.stagger > *:nth-child(6) { animation-delay: 300ms; }
+
+/* ── NPS Institutional watermark pattern ───────────────────────────────────── */
+.nps-watermark {
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23001F4D' fill-opacity='0.025'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}

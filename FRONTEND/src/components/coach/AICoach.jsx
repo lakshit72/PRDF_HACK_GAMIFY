@@ -1,80 +1,103 @@
 /**
  * components/coach/AICoach.jsx
  *
- * AI Coach chat interface — floating bubble + slide-up panel.
+ * AI Coach "Niyati" — floating chat widget with:
+ *   • Personal caricature avatar (from user's uploaded photo)
+ *   • Avatar animation: cycles through caricatures while bot is typing
+ *   • Thought bubble showing the last bot response (or typing dots)
+ *   • Full chat history in a slide-up panel
+ *   • Language switcher (EN / HI / HG)
+ *   • Suggested prompt chips
+ *   • Graceful fallback to default SVG avatar when no caricatures exist
  *
- * Features:
- *  - Floating action button with unread badge
- *  - Slide-up chat panel (mobile-native feel)
- *  - Suggested prompt chips
- *  - Language toggle (English / Hindi / Hinglish)
- *  - Typing indicator (3-dot pulse)
- *  - Message bubbles with timestamps
- *  - Mock AI responses with NPS knowledge (falls back gracefully if /api/coach/ask fails)
- *  - Local conversation state (not persisted)
- *
- * Usage: Drop <AICoach /> anywhere in the app tree — it self-positions.
+ * Usage: <AICoach /> — drop anywhere, self-positions fixed bottom-right.
  */
 import { useState, useRef, useEffect, useCallback } from 'react';
-import api from '../../services/api.js';
+import { useAuth } from '../../context/AuthContext.jsx';
+import api         from '../../services/api.js';
 
-// ── Mock AI responses (used as fallback) ─────────────────────────────────────
-const MOCK_RESPONSES = {
-  en: {
-    default: "Great question! NPS (National Pension System) is one of India's most tax-efficient retirement tools. Would you like to know about tax benefits, withdrawal rules, or how to maximise your corpus?",
-    'what is nps':          "NPS stands for National Pension System — a government-backed retirement savings scheme regulated by PFRDA. You invest monthly, your corpus grows over time, and at 60 you can withdraw 60% tax-free and use 40% to buy an annuity for regular income. 🏛️",
-    'tax benefits':         "NPS gives you up to ₹2 lakh in deductions! ₹1.5L under Section 80C and an exclusive additional ₹50,000 under Section 80CCD(1B) — that's over and above the 80C limit. For someone in the 30% tax bracket, that saves up to ₹62,400/year! 💰",
-    'withdrawal':           "At 60, you can withdraw up to 60% of your corpus as a lump sum — completely tax-free! The remaining 40% goes into an annuity for monthly income. You can also make partial withdrawals after 3 years for specific needs like education or medical emergencies. 🔓",
-    'how to invest':        "Start simple: open an NPS Tier I account via your bank or the eNPS portal. Choose a Pension Fund Manager, pick your asset allocation (I'd suggest more equity when you're young!), and set up a monthly SIP. Even ₹2,000/month at 25 can grow to over ₹1 crore by 60! 📈",
-    'asset allocation':     "NPS offers three asset classes: E (Equity) for growth, C (Corporate Bonds) for stability, and G (Govt Securities) for safety. At a younger age, going heavier on E makes sense — the Aggressive Lifecycle Fund auto-manages this for you. ⚖️",
-    'pran':                 "PRAN (Permanent Retirement Account Number) is your unique 12-digit NPS identity. It stays with you for life, travels across employers and cities, and links all your NPS contributions. Think of it as your pension passport! 🪪",
-    'tier 1 vs tier 2':     "Tier I is your primary pension account — tax benefits, restricted withdrawals, long-term focus. Tier II is a voluntary savings account — no tax benefits generally, but completely flexible withdrawals. Most people focus on Tier I for retirement. 📊",
-  },
-  hi: {
-    default: "बढ़िया सवाल! NPS (राष्ट्रीय पेंशन प्रणाली) भारत के सबसे कर-कुशल सेवानिवृत्ति उपकरणों में से एक है। क्या आप कर लाभ, निकासी नियम, या अपने कॉर्पस को अधिकतम करने के बारे में जानना चाहते हैं?",
-    'what is nps':          "NPS यानी राष्ट्रीय पेंशन प्रणाली — PFRDA द्वारा नियंत्रित एक सरकारी सेवानिवृत्ति बचत योजना। आप मासिक निवेश करते हैं, 60 साल पर 60% कर-मुक्त निकाल सकते हैं! 🏛️",
-    'tax benefits':         "NPS में ₹2 लाख तक की कटौती मिलती है! 80C में ₹1.5 लाख और 80CCD(1B) में अतिरिक्त ₹50,000। 30% टैक्स ब्रैकेट में यह ₹62,400/साल की बचत है! 💰",
-  },
-  hinglish: {
-    default: "Bilkul sahi question! NPS ek ekdum solid retirement tool hai — tax bhi bachta hai, aur retirement ke liye bhi best hai. Kya aap tax benefits, withdrawal rules, ya corpus maximize karne ke baare mein jaanna chahte ho?",
-    'what is nps':          "Yaar, NPS matlab National Pension System — government-backed retirement plan hai jo PFRDA regulate karta hai. Monthly invest karo, 60 saal par 60% tax-free nikaalo. Simple aur powerful! 🏛️",
-    'tax benefits':         "NPS se 2 lakh tak deduction milta hai bhai! 1.5L 80C mein, aur exclusive 50K 80CCD(1B) mein. 30% bracket mein ho toh 62,400 rupaye ka direct tax bachta hai har saal! 💰",
-  },
+// ── Default avatar (shown when user has no caricatures) ───────────────────────
+// Inline SVG data URL — no file needed, always works
+const DEFAULT_AVATAR = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <circle cx="50" cy="50" r="48" fill="#001F4D" stroke="#F47920" stroke-width="3"/>
+  <ellipse cx="50" cy="58" rx="22" ry="26" fill="#FDBF7B"/>
+  <path d="M28 44 Q28 20 50 18 Q72 20 72 44 L68 40 Q62 22 50 20 Q38 22 32 40 Z" fill="#B0BEC5"/>
+  <ellipse cx="42" cy="50" rx="4" ry="3" fill="#5D4037"/>
+  <ellipse cx="58" cy="50" rx="4" ry="3" fill="#5D4037"/>
+  <path d="M40 62 Q50 70 60 62" stroke="#8B4513" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <text x="50" y="96" text-anchor="middle" font-size="8" font-family="sans-serif" fill="#F47920" font-weight="bold">Niyati</text>
+</svg>`)}`;
+
+// ── Mock responses (used when API is unavailable) ─────────────────────────────
+const MOCK = {
+  'what is nps':    "NPS (National Pension System) is a government-backed retirement savings scheme regulated by PFRDA. Invest monthly, withdraw 60% tax-free at 60, and convert 40% to an annuity for monthly income. 🏛️",
+  'tax':            "NPS gives ₹2 lakh in deductions — ₹1.5L under 80C and ₹50K exclusively under 80CCD(1B). That's up to ₹62,400 saved per year for a 30% bracket earner! 💰",
+  'withdraw':       "At 60, withdraw up to 60% tax-free. The remaining 40% buys an annuity. Partial withdrawals (25% of your contributions) are allowed after 3 years for education, medical, or home purchase. 🔓",
+  'pran':           "PRAN is your 12-digit Permanent Retirement Account Number — it's yours for life across all employers and cities. Find it on your NPS statement or eNPS portal. 🪪",
+  'default':        "Great question! I'm Niyati, your NPS coach. Ask me about tax benefits, withdrawal rules, PRAN, asset allocation, or how to get started with NPS. 😊",
 };
 
-const SUGGESTED_PROMPTS = [
-  { id: 'what-is-nps',  label: 'What is NPS?',         query: 'what is nps'          },
-  { id: 'tax',          label: '💰 Tax Benefits',       query: 'tax benefits'         },
-  { id: 'withdrawal',   label: '🔓 Withdrawal Rules',   query: 'withdrawal'           },
-  { id: 'invest',       label: '📈 How to invest?',     query: 'how to invest'        },
-  { id: 'allocation',   label: '⚖️ Asset Allocation',   query: 'asset allocation'     },
-  { id: 'pran',         label: '🪪 What is PRAN?',      query: 'pran'                 },
-  { id: 'tiers',        label: '📊 Tier I vs Tier II',  query: 'tier 1 vs tier 2'     },
+const getMockResponse = (text) => {
+  const lower = text.toLowerCase();
+  for (const [key, val] of Object.entries(MOCK)) {
+    if (key !== 'default' && lower.includes(key)) return val;
+  }
+  return MOCK.default;
+};
+
+// ── Suggested prompts ─────────────────────────────────────────────────────────
+const PROMPTS = [
+  { label: 'What is NPS?',      query: 'What is NPS?' },
+  { label: '💰 Tax Benefits',   query: 'What are the tax benefits of NPS?' },
+  { label: '🔓 Withdrawals',    query: 'When can I withdraw from NPS?' },
+  { label: '📈 How to start?',  query: 'How do I start investing in NPS?' },
+  { label: '🪪 What is PRAN?',  query: 'What is PRAN?' },
 ];
 
 const LANG_OPTIONS = [
-  { id: 'en',       label: 'EN',        name: 'English'   },
-  { id: 'hi',       label: 'हि',        name: 'Hindi'     },
-  { id: 'hinglish', label: 'HG',        name: 'Hinglish'  },
+  { id: 'en',       label: 'EN' },
+  { id: 'hi',       label: 'हि' },
+  { id: 'hinglish', label: 'HG' },
 ];
 
 // ── Typing indicator ──────────────────────────────────────────────────────────
-function TypingIndicator() {
+function TypingDots() {
   return (
-    <div className="flex items-end gap-2 justify-start">
-      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gold to-ember flex items-center justify-center text-xs text-ink font-bold shrink-0">
-        🤖
-      </div>
-      <div className="bg-surface-2 border border-border rounded-2xl rounded-bl-sm px-4 py-3">
-        <div className="flex gap-1 items-center h-4">
-          {[0, 1, 2].map(i => (
-            <div
-              key={i}
-              className="w-1.5 h-1.5 rounded-full bg-muted animate-bounce"
-              style={{ animationDelay: `${i * 150}ms`, animationDuration: '0.8s' }}
-            />
-          ))}
-        </div>
+    <div className="flex gap-1 items-center h-5">
+      {[0, 1, 2].map(i => (
+        <span
+          key={i}
+          className="w-2 h-2 rounded-full bg-gold inline-block animate-bounce"
+          style={{ animationDelay: `${i * 150}ms`, animationDuration: '0.8s' }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ── Thought bubble ────────────────────────────────────────────────────────────
+function ThoughtBubble({ text, isTyping }) {
+  return (
+    <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 z-20 w-56">
+      <div className="bg-white border border-border rounded-2xl rounded-bl-sm px-3 py-2.5 shadow-card">
+        {isTyping ? (
+          <TypingDots />
+        ) : (
+          <p className="text-ink text-xs font-body leading-relaxed line-clamp-3">
+            {text}
+          </p>
+        )}
+        {/* Arrow pointing down to avatar */}
+        <div
+          className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0"
+          style={{
+            borderLeft:  '8px solid transparent',
+            borderRight: '8px solid transparent',
+            borderTop:   '8px solid white',
+            filter:      'drop-shadow(0 1px 0 #C8D6E8)',
+          }}
+        />
       </div>
     </div>
   );
@@ -83,131 +106,149 @@ function TypingIndicator() {
 // ── Message bubble ────────────────────────────────────────────────────────────
 function MessageBubble({ msg }) {
   const isUser = msg.role === 'user';
-  const time   = new Date(msg.ts).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-
   return (
-    <div className={`flex items-end gap-2 animate-fade-up ${isUser ? 'justify-end' : 'justify-start'}`}
+    <div className={`flex items-end gap-2 ${isUser ? 'justify-end' : 'justify-start'} animate-fade-up`}
          style={{ animationDuration: '0.2s' }}>
-      {!isUser && (
-        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gold to-ember flex items-center justify-center text-xs text-ink font-bold shrink-0 mb-1">
-          🤖
-        </div>
-      )}
-
-      <div className={`max-w-[80%] ${isUser ? 'items-end' : 'items-start'} flex flex-col gap-1`}>
-        <div
-          className={`px-4 py-2.5 rounded-2xl text-sm font-body leading-relaxed ${
-            isUser
-              ? 'bg-gold text-ink rounded-br-sm font-medium'
-              : 'bg-surface-2 border border-border text-text-primary rounded-bl-sm'
-          }`}
-        >
-          {msg.content}
-        </div>
-        <p className="text-[10px] text-muted font-mono px-1">{time}</p>
+      <div className={`
+        max-w-[82%] px-3.5 py-2.5 rounded-2xl text-sm font-body leading-relaxed
+        ${isUser
+          ? 'bg-gold text-ink rounded-br-sm font-medium'
+          : 'bg-surface-2 border border-border text-ink rounded-bl-sm'
+        }
+      `}>
+        {msg.content}
       </div>
-
-      {isUser && (
-        <div className="w-7 h-7 rounded-full bg-surface-2 border border-border flex items-center justify-center text-xs shrink-0 mb-1">
-          👤
-        </div>
-      )}
     </div>
   );
 }
 
-// ── Get mock or real response ─────────────────────────────────────────────────
-async function getResponse(text, lang) {
-  // Try real API first
-  try {
-    const { data } = await api.post('/coach/ask', { message: text, language: lang });
-    return data.response ?? data.message ?? data.answer ?? 'I received your question!';
-  } catch {
-    // Fallback to mock responses
-    const lower   = text.toLowerCase().trim();
-    const bank    = MOCK_RESPONSES[lang] ?? MOCK_RESPONSES.en;
-    const matched = Object.entries(bank).find(([key]) => key !== 'default' && lower.includes(key));
-    return matched ? matched[1] : bank.default;
-  }
-}
-
 // ── Main component ────────────────────────────────────────────────────────────
 export default function AICoach() {
-  const [open,     setOpen]    = useState(false);
-  const [messages, setMessages]= useState([
+  const { user } = useAuth();
+
+  // Caricatures from user profile (set after photo upload)
+  const caricatures = user?.caricatures?.length ? user.caricatures : [DEFAULT_AVATAR];
+
+  const [open,          setOpen]          = useState(false);
+  const [messages,      setMessages]      = useState([
     {
       id:      'welcome',
       role:    'assistant',
-      content: "Hi! I'm your NPS Coach 🤖 Ask me anything about the National Pension System — tax benefits, withdrawals, how to invest, and more!",
-      ts:      Date.now(),
+      content: "Hi! I'm Niyati, your NPS coach 👋 Ask me anything about the National Pension System!",
     },
   ]);
-  const [input,    setInput]   = useState('');
-  const [typing,   setTyping]  = useState(false);
-  const [lang,     setLang]    = useState('en');
-  const [unread,   setUnread]  = useState(0);
-  const messagesEndRef         = useRef(null);
-  const inputRef               = useRef(null);
+  const [input,         setInput]         = useState('');
+  const [isTyping,      setIsTyping]      = useState(false);
+  const [lang,          setLang]          = useState('en');
+  const [unread,        setUnread]        = useState(0);
+  const [avatarIndex,   setAvatarIndex]   = useState(0);
+  const [lastBotMsg,    setLastBotMsg]    = useState(
+    "Hi! I'm Niyati, your NPS coach 👋 Ask me anything about NPS!"
+  );
 
-  // Auto-scroll to bottom
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, []);
+  const messagesEndRef = useRef(null);
+  const inputRef       = useRef(null);
 
-  useEffect(() => { if (open) scrollToBottom(); }, [messages, open, scrollToBottom]);
-  useEffect(() => { if (open) { inputRef.current?.focus(); setUnread(0); } }, [open]);
+  // ── Avatar cycling animation ──────────────────────────────────────────────
+  // Cycles through caricatures every 300ms while bot is typing.
+  // Cleared immediately when isTyping becomes false.
+  useEffect(() => {
+    let interval;
+    if (isTyping && caricatures.length > 1) {
+      interval = setInterval(() => {
+        setAvatarIndex(prev => (prev + 1) % caricatures.length);
+      }, 300);
+    } else {
+      // Settle on the first caricature when done typing
+      setAvatarIndex(0);
+    }
+    return () => clearInterval(interval);
+  }, [isTyping, caricatures]);
 
+  // ── Auto-scroll messages ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (open) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, open]);
+
+  useEffect(() => {
+    if (open) { inputRef.current?.focus(); setUnread(0); }
+  }, [open]);
+
+  // ── Send message ──────────────────────────────────────────────────────────
   const sendMessage = useCallback(async (text) => {
     const trimmed = text.trim();
-    if (!trimmed) return;
+    if (!trimmed || isTyping) return;
 
-    const userMsg = { id: Date.now(), role: 'user', content: trimmed, ts: Date.now() };
+    const userMsg = { id: Date.now(), role: 'user', content: trimmed };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
-    setTyping(true);
+    setIsTyping(true);
 
-    // Simulate realistic typing delay
-    const delay = 600 + Math.random() * 800;
+    // Minimum visible typing delay so animation plays
+    const delay = 500 + Math.random() * 600;
     await new Promise(r => setTimeout(r, delay));
 
-    const response = await getResponse(trimmed, lang);
-    setTyping(false);
+    let response;
+    try {
+      const { data } = await api.post('/coach/ask', {
+        question: trimmed,
+        language: lang,
+      });
+      response = data.answer ?? getMockResponse(trimmed);
+    } catch {
+      response = getMockResponse(trimmed);
+    }
 
-    const assistantMsg = { id: Date.now() + 1, role: 'assistant', content: response, ts: Date.now() };
-    setMessages(prev => [...prev, assistantMsg]);
-
+    setIsTyping(false);
+    const botMsg = { id: Date.now() + 1, role: 'assistant', content: response };
+    setMessages(prev => [...prev, botMsg]);
+    setLastBotMsg(response);
     if (!open) setUnread(prev => prev + 1);
-  }, [lang, open]);
+  }, [lang, isTyping, open]);
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); }
   };
 
+  const currentAvatar = caricatures[avatarIndex] ?? DEFAULT_AVATAR;
+
   return (
     <>
-      {/* ── Floating button ── */}
+      {/* ── Floating button with thought bubble ── */}
       <div className="fixed bottom-6 right-4 z-40 flex flex-col items-end gap-2">
-        {/* Pulse hint for first open */}
+        {/* Thought bubble — always visible when panel is closed */}
         {!open && (
-          <div
-            className="bg-surface border border-border rounded-2xl px-3 py-2 text-xs font-body text-text-secondary
-                       shadow-xl animate-fade-up pointer-events-none"
-            style={{ animationDelay: '1s' }}
-          >
-            Ask your NPS Coach ✨
+          <div className="relative mb-1">
+            <ThoughtBubble text={lastBotMsg} isTyping={isTyping} />
           </div>
         )}
+
+        {/* Avatar button */}
         <button
           onClick={() => setOpen(v => !v)}
-          className="w-14 h-14 rounded-full shadow-2xl flex items-center justify-center
-                     active:scale-95 transition-all duration-200 relative"
-          style={{ background: 'linear-gradient(135deg, #f5c542 0%, #ff6b35 100%)' }}
+          className="relative w-16 h-16 rounded-full shadow-2xl overflow-hidden
+                     ring-4 ring-gold/50 active:scale-95 transition-all duration-200
+                     hover:ring-gold focus:outline-none"
           aria-label="Open AI Coach"
+          style={{
+            // Spin border effect while typing
+            animation: isTyping ? 'spin 2s linear infinite' : 'none',
+            background: isTyping
+              ? 'conic-gradient(#F47920, #001F4D, #F47920)'
+              : 'transparent',
+            padding: isTyping ? '3px' : '0',
+          }}
         >
-          <span className="text-2xl">{open ? '✕' : '🤖'}</span>
+          <img
+            src={currentAvatar}
+            alt="Niyati — NPS Coach"
+            className="w-full h-full rounded-full object-cover bg-surface-2"
+            onError={(e) => { e.target.src = DEFAULT_AVATAR; }}
+          />
           {unread > 0 && (
-            <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 border-2 border-ink
-                            flex items-center justify-center text-[10px] font-mono font-bold text-white">
+            <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500
+                            border-2 border-white flex items-center justify-center
+                            text-[10px] font-mono font-bold text-white z-10">
               {unread}
             </div>
           )}
@@ -219,34 +260,45 @@ export default function AICoach() {
         className={`
           fixed inset-x-0 bottom-0 z-50 flex flex-col
           sm:inset-x-auto sm:right-4 sm:bottom-24 sm:w-96
-          transition-all duration-350 ease-out
-          ${open ? 'translate-y-0 opacity-100 pointer-events-auto' : 'translate-y-full sm:translate-y-8 opacity-0 pointer-events-none'}
+          transition-all duration-300 ease-out origin-bottom-right
+          ${open
+            ? 'translate-y-0 opacity-100 scale-100 pointer-events-auto'
+            : 'translate-y-4 opacity-0 scale-95 pointer-events-none'
+          }
         `}
         style={{ maxHeight: '85dvh' }}
       >
-        <div className="flex flex-col bg-ink border border-border rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden h-full"
+        <div className="flex flex-col bg-white border border-border rounded-t-3xl sm:rounded-3xl
+                        shadow-2xl overflow-hidden"
              style={{ maxHeight: '75dvh' }}>
 
-          {/* Header */}
-          <div
-            className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0"
-            style={{ background: 'linear-gradient(135deg, #0f1520 0%, #161d2e 100%)' }}
-          >
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-gold to-ember
-                              flex items-center justify-center text-base shadow-lg">
-                🤖
-              </div>
-              <div>
-                <p className="font-display font-bold text-sm text-text-primary">NPS Coach</p>
-                <div className="flex items-center gap-1">
-                  <div className="w-1.5 h-1.5 rounded-full bg-sage animate-pulse-slow" />
-                  <p className="text-muted text-[10px] font-body">Online · Powered by AI</p>
-                </div>
+          {/* Panel header — avatar + name + lang switcher */}
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-border shrink-0
+                          bg-gradient-to-r from-ink to-ink-2">
+            {/* Avatar */}
+            <div className={`
+              w-10 h-10 rounded-full overflow-hidden border-2 shrink-0
+              ${isTyping ? 'border-gold animate-pulse' : 'border-gold/50'}
+            `}>
+              <img
+                src={currentAvatar}
+                alt="Niyati"
+                className="w-full h-full object-cover"
+                onError={(e) => { e.target.src = DEFAULT_AVATAR; }}
+              />
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <p className="font-display font-bold text-sm text-white">Niyati</p>
+              <div className="flex items-center gap-1.5">
+                <div className={`w-1.5 h-1.5 rounded-full ${isTyping ? 'bg-gold animate-pulse' : 'bg-sage'}`} />
+                <p className="text-white/50 text-[10px] font-body">
+                  {isTyping ? 'Thinking...' : 'NPS Coach · Online'}
+                </p>
               </div>
             </div>
 
-            {/* Language selector */}
+            {/* Language picker */}
             <div className="flex gap-1">
               {LANG_OPTIONS.map(opt => (
                 <button
@@ -255,37 +307,53 @@ export default function AICoach() {
                   className={`
                     w-7 h-7 rounded-lg text-[10px] font-mono font-bold transition-all duration-150
                     ${lang === opt.id
-                      ? 'bg-gold/20 border border-gold/40 text-gold'
-                      : 'bg-surface-2 border border-border text-muted hover:text-text-secondary'
+                      ? 'bg-gold/20 border border-gold/50 text-gold'
+                      : 'bg-white/10 border border-white/20 text-white/60 hover:text-white'
                     }
                   `}
-                  title={opt.name}
                 >
                   {opt.label}
                 </button>
               ))}
             </div>
+
+            {/* Close */}
+            <button
+              onClick={() => setOpen(false)}
+              className="text-white/50 hover:text-white text-xl leading-none ml-1"
+            >
+              ×
+            </button>
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-3 py-4 space-y-3">
+          <div className="flex-1 overflow-y-auto px-3 py-4 space-y-3 bg-surface-2/30">
             {messages.map(msg => <MessageBubble key={msg.id} msg={msg} />)}
-            {typing && <TypingIndicator />}
+            {isTyping && (
+              <div className="flex items-end gap-2">
+                <div className="w-7 h-7 rounded-full overflow-hidden border border-gold/30 shrink-0">
+                  <img src={currentAvatar} alt="" className="w-full h-full object-cover" />
+                </div>
+                <div className="bg-white border border-border rounded-2xl rounded-bl-sm px-4 py-3">
+                  <TypingDots />
+                </div>
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
 
           {/* Suggested prompts */}
-          <div className="px-3 pb-2 shrink-0">
-            <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-              {SUGGESTED_PROMPTS.map(p => (
+          <div className="px-3 pb-2 shrink-0 bg-white">
+            <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+              {PROMPTS.map(p => (
                 <button
-                  key={p.id}
+                  key={p.label}
                   onClick={() => sendMessage(p.query)}
-                  disabled={typing}
+                  disabled={isTyping}
                   className="shrink-0 text-[11px] font-body px-2.5 py-1.5 rounded-full border
                              border-border bg-surface-2 text-text-secondary
-                             hover:border-gold/30 hover:text-gold transition-all duration-150
-                             disabled:opacity-40"
+                             hover:border-gold/40 hover:text-gold transition-all duration-150
+                             disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {p.label}
                 </button>
@@ -294,46 +362,51 @@ export default function AICoach() {
           </div>
 
           {/* Input */}
-          <div className="px-3 pb-4 shrink-0 border-t border-border pt-2">
+          <div className="px-3 pb-4 pt-2 border-t border-border shrink-0 bg-white">
             <div className="flex gap-2 items-end">
               <textarea
                 ref={inputRef}
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask anything about NPS…"
+                placeholder="Ask about NPS..."
                 rows={1}
+                disabled={isTyping}
                 className="flex-1 bg-surface-2 border border-border rounded-xl px-3 py-2.5
-                           text-text-primary text-sm font-body placeholder-muted
-                           focus:outline-none focus:border-gold/50 focus:ring-1 focus:ring-gold/20
-                           transition-all duration-200 resize-none"
-                style={{ maxHeight: '100px', overflowY: 'auto' }}
+                           text-ink text-sm font-body placeholder-muted
+                           focus:outline-none focus:border-frost/50 focus:ring-1 focus:ring-frost/20
+                           transition-all duration-200 resize-none disabled:opacity-50"
+                style={{ maxHeight: '80px', overflowY: 'auto' }}
               />
               <button
                 onClick={() => sendMessage(input)}
-                disabled={!input.trim() || typing}
+                disabled={!input.trim() || isTyping}
                 className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0
                            transition-all duration-200 active:scale-90 disabled:opacity-40"
-                style={{ background: input.trim() ? 'linear-gradient(135deg, #f5c542, #ff6b35)' : '#1e2740' }}
+                style={{
+                  background: input.trim() && !isTyping ? '#F47920' : '#E8EEF5',
+                }}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-                     style={{ color: input.trim() ? '#0b0f1a' : '#64748b' }}>
+                <svg
+                  width="16" height="16" viewBox="0 0 24 24" fill="none"
+                  stroke={input.trim() && !isTyping ? 'white' : '#94a3b8'} strokeWidth="2.5"
+                >
                   <line x1="22" y1="2" x2="11" y2="13"/>
                   <polygon points="22 2 15 22 11 13 2 9 22 2"/>
                 </svg>
               </button>
             </div>
             <p className="text-muted text-[10px] font-body text-center mt-1.5">
-              Press Enter to send · Shift+Enter for new line
+              Enter to send · Shift+Enter for new line
             </p>
           </div>
         </div>
       </div>
 
-      {/* Backdrop for mobile */}
+      {/* Mobile backdrop */}
       {open && (
         <div
-          className="fixed inset-0 bg-ink/50 backdrop-blur-sm z-40 sm:hidden"
+          className="fixed inset-0 bg-ink/40 backdrop-blur-sm z-40 sm:hidden"
           onClick={() => setOpen(false)}
         />
       )}

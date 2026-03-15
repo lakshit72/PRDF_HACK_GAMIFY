@@ -1,39 +1,26 @@
 /**
- * pages/DashboardPage.jsx
- * Main app view. Composes all dashboard widgets.
- * Skeleton loaders shown during initial data fetch.
+ * pages/DashboardPage.jsx — NPS institutional dashboard.
+ * Light background, structured layout matching eNPS portal patterns.
  */
-import { useEffect } from "react";
-import { useUserData } from "../context/UserDataContext.jsx";
-import Header from "../components/dashboard/Header.jsx";
-import ScoreCard from "../components/dashboard/ScoreCard.jsx";
-import StreakCard from "../components/dashboard/StreakCard.jsx";
-import QuestCard from "../components/dashboard/QuestCard.jsx";
-import FutureSelfCard from "../components/dashboard/FutureSelfCard.jsx";
-import QuickActions from "../components/dashboard/QuickActions.jsx";
-import { ErrorBanner } from "../components/ui/index.jsx";
+import { useEffect } from 'react';
+import { useUserData } from '../context/UserDataContext.jsx';
+import Header        from '../components/dashboard/Header.jsx';
+import ScoreCard     from '../components/dashboard/ScoreCard.jsx';
+import StreakCard    from '../components/dashboard/StreakCard.jsx';
+import QuestCard    from '../components/dashboard/QuestCard.jsx';
+import FutureSelfCard from '../components/dashboard/FutureSelfCard.jsx';
+import QuickActions  from '../components/dashboard/QuickActions.jsx';
+import { ErrorBanner } from '../components/ui/index.jsx';
 
 export default function DashboardPage() {
-  const {
-    profile,
-    streak,
-    score,
-    quests,
-    futureSelf,
-    loading,
-    error,
-    refresh,
-  } = useUserData();
+  const { profile, streak, score, quests, futureSelf, loading, error, refresh } = useUserData();
 
-  // Refresh on mount to get latest data
-  useEffect(() => {
-    refresh();
-  }, []); // eslint-disable-line
+  useEffect(() => { refresh(); }, []); // eslint-disable-line
 
   return (
-    <div className="min-h-dvh">
-      {/* Max-width container for larger screens */}
-      <div className="max-w-lg mx-auto px-4 pt-10 pb-24">
+    <div className="min-h-dvh nps-watermark" style={{ background: '#F0F4FA' }}>
+      <div className="max-w-lg mx-auto px-4 pt-6 pb-24">
+
         <Header />
 
         {error && (
@@ -42,42 +29,51 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Staggered card layout */}
         <div className="space-y-4 stagger">
-          {/* Row 1: Score (full width) */}
+
+          {/* NPS Readiness Score — full width */}
           <div className="animate-fade-up">
             <ScoreCard score={score} loading={loading} />
           </div>
 
-          {/* Row 2: Streak + Quest (side by side) */}
+          {/* Streak + Quest — side by side */}
           <div className="grid grid-cols-2 gap-4 animate-fade-up">
             <StreakCard streak={streak} loading={loading} />
-            <QuestCard quests={quests} loading={loading} />
+            <QuestCard  quests={quests} loading={loading} />
           </div>
 
-          {/* Row 3: Future Self (full width) */}
+          {/* Future Self projection */}
           <div className="animate-fade-up">
             <FutureSelfCard futureSelf={futureSelf} loading={loading} />
           </div>
 
-          {/* Row 4: Quick Actions */}
+          {/* Quick Services */}
           <div className="animate-fade-up">
             <QuickActions />
           </div>
+
+          {/* Disclaimer footer */}
+          <div className="info-banner animate-fade-up">
+            <span className="text-blue-600 text-sm shrink-0">ℹ</span>
+            <p className="text-blue-800 text-[11px] font-body leading-relaxed">
+              FutureYou is for educational purposes only. Not affiliated with PFRDA. 
+              For official NPS transactions, visit{' '}
+              <a href="https://enps.nsdl.com" target="_blank" rel="noreferrer"
+                 className="underline font-medium">enps.nsdl.com</a>.
+            </p>
+          </div>
         </div>
 
-        {/* Pull-to-refresh hint */}
-        <p className="text-center text-muted text-xs font-body mt-8">
+        {/* Refresh */}
+        <div className="text-center mt-6">
           <button
             onClick={refresh}
             disabled={loading}
-            className="hover:text-text-secondary transition-colors disabled:opacity-40"
+            className="text-text-secondary text-xs font-body hover:text-ink transition-colors disabled:opacity-40"
           >
-            ↻ Refresh
+            ↻ Refresh dashboard
           </button>
-          {" · "}
-          <span>Data updates in real time</span>
-        </p>
+        </div>
       </div>
     </div>
   );

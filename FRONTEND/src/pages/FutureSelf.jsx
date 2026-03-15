@@ -1,34 +1,47 @@
 /**
  * pages/FutureSelf.jsx
  *
- * The Future Self page — AI-generated avatar, letter, and retirement projections.
+ * Full Future Self page — shows the user's personal caricature (from photo upload)
+ * alongside their AI-generated letter and corpus projections.
  *
- * Features:
- *  - Animated avatar SVG with NPS-tier colour theme
- *  - Animated corpus counters
- *  - AI letter with fade-in reveal
- *  - Regenerate modal with sliders
- *  - Toast error handling
- *  - Full skeleton loading state
+ * Avatar priority:
+ *   1. user.caricatures[0]   — personal caricature from photo upload
+ *   2. DEFAULT_AVATAR        — built-in SVG fallback (always available)
  */
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useUserData }   from '../context/UserDataContext.jsx';
-import { useAuth }       from '../context/AuthContext.jsx';
-import { futureSelfApi } from '../services/api.js';
-import { useToast }      from '../components/shared/Toast.jsx';
-import FutureSelfAvatar  from '../components/futureself/FutureSelfAvatar.jsx';
-import CorpusStats       from '../components/futureself/CorpusStats.jsx';
-import FutureLetter      from '../components/futureself/FutureLetter.jsx';
-import RegenerateModal   from '../components/futureself/RegenerateModal.jsx';
-import { Skeleton }      from '../components/ui/index.jsx';
+import { useNavigate }          from 'react-router-dom';
+import { useUserData }          from '../context/UserDataContext.jsx';
+import { useAuth }              from '../context/AuthContext.jsx';
+import { futureSelfApi }        from '../services/api.js';
+import { useToast }             from '../components/shared/Toast.jsx';
+import RegenerateModal          from '../components/futureself/RegenerateModal.jsx';
+import CorpusStats              from '../components/futureself/CorpusStats.jsx';
+import FutureLetter             from '../components/futureself/FutureLetter.jsx';
+import { Spinner, Skeleton }    from '../components/ui/index.jsx';
 
-// ── Skeleton layout while loading ────────────────────────────────────────────
-function FutureSelfSkeleton() {
+// ── Inline SVG fallback — no file needed ─────────────────────────────────────
+const DEFAULT_AVATAR = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs><radialGradient id="bg" cx="50%" cy="50%" r="50%">
+    <stop offset="0%" stop-color="#FFF9F0"/><stop offset="100%" stop-color="#FFE0B2"/>
+  </radialGradient></defs>
+  <circle cx="100" cy="100" r="98" fill="url(#bg)" stroke="#F47920" stroke-width="3"/>
+  <ellipse cx="100" cy="108" rx="44" ry="52" fill="#FDBF7B"/>
+  <path d="M56 82 Q56 44 100 41 Q144 44 144 82 L137 77 Q128 48 100 46 Q72 48 63 77 Z" fill="#ECEFF1"/>
+  <ellipse cx="82" cy="97" rx="7" ry="5" fill="#5D4037"/>
+  <ellipse cx="118" cy="97" rx="7" ry="5" fill="#5D4037"/>
+  <circle cx="82" cy="97" r="12" fill="none" stroke="#78909C" stroke-width="2"/>
+  <circle cx="118" cy="97" r="12" fill="none" stroke="#78909C" stroke-width="2"/>
+  <line x1="94" y1="97" x2="106" y2="97" stroke="#78909C" stroke-width="2"/>
+  <path d="M82 118 Q100 130 118 118" stroke="#8B4513" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <text x="100" y="185" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="700" fill="#001F4D">Future You · Age 60</text>
+</svg>`)}`;
+
+function PageSkeleton() {
   return (
     <div className="space-y-6 animate-pulse">
       <div className="flex justify-center">
-        <Skeleton className="w-48 h-52 rounded-full" />
+        <Skeleton className="w-40 h-40 rounded-full" />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Skeleton className="h-28 rounded-2xl" />
@@ -40,19 +53,18 @@ function FutureSelfSkeleton() {
 }
 
 export default function FutureSelf() {
-  const navigate                      = useNavigate();
-  const { user }                      = useAuth();
+  const navigate                                       = useNavigate();
+  const { user }                                       = useAuth();
   const { futureSelf, saveFutureSelf, score, profile } = useUserData();
-  const { addToast }                  = useToast();
+  const { addToast }                                   = useToast();
 
-  const [loading,       setLoading]       = useState(false);
-  const [modalOpen,     setModalOpen]     = useState(false);
-  const [localData,     setLocalData]     = useState(futureSelf);
+  const [loading,    setLoading]    = useState(false);
+  const [modalOpen,  setModalOpen]  = useState(false);
+  const [localData,  setLocalData]  = useState(futureSelf);
+  const [imgError,   setImgError]   = useState(false);
 
-  // Sync with context whenever futureSelf changes externally
   useEffect(() => { setLocalData(futureSelf); }, [futureSelf]);
 
-  // Auto-fetch if we have profile data but no future self yet
   useEffect(() => {
     if (!localData && profile?.age && !loading) {
       handleGenerate({
@@ -73,11 +85,8 @@ export default function FutureSelf() {
       saveFutureSelf(data);
       addToast('Future self updated! ✨', 'success');
     } catch (err) {
-      const msg = err.response?.data?.error
-               ?? err.response?.data?.warning
-               ?? 'Could not generate future self. Please try again.';
+      const msg = err.response?.data?.error ?? 'Could not generate future self.';
       addToast(msg, 'error');
-      // If API returned a warning with corpus data, still show it
       if (err.response?.data?.projectedCorpus) {
         setLocalData(err.response.data);
         saveFutureSelf(err.response.data);
@@ -87,68 +96,109 @@ export default function FutureSelf() {
     }
   };
 
-  const tier = score?.tier ?? 'Good';
+  // ── Avatar resolution ─────────────────────────────────────────────────────
+  // Use personal caricature if available, otherwise built-in SVG default
+  const avatarSrc = (!imgError && user?.caricatures?.[0])
+    ? user.caricatures[0]
+    : DEFAULT_AVATAR;
+
+  const isPersonalAvatar = !imgError && !!user?.caricatures?.[0];
 
   return (
     <>
-      <div className="min-h-dvh">
-        {/* Hero background */}
-        <div
-          className="absolute inset-x-0 top-0 h-64 pointer-events-none"
-          style={{
-            background: 'radial-gradient(ellipse 80% 60% at 50% 0%, rgba(245,197,66,0.07) 0%, transparent 70%)',
-          }}
-        />
+      <div className="min-h-dvh" style={{ background: '#F0F4FA' }}>
+        <div className="max-w-lg mx-auto px-4 pt-10 pb-28">
 
-        <div className="relative max-w-lg mx-auto px-4 pt-10 pb-28">
-
-          {/* ── Top bar ── */}
+          {/* Back + Edit */}
           <div className="flex items-center justify-between mb-8">
             <button
               onClick={() => navigate('/dashboard')}
               className="flex items-center gap-1.5 text-text-secondary text-sm font-body
-                         hover:text-text-primary transition-colors"
+                         hover:text-ink transition-colors"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="15 18 9 12 15 6" />
+                <polyline points="15 18 9 12 15 6"/>
               </svg>
               Dashboard
             </button>
-
             <button
               onClick={() => setModalOpen(true)}
               disabled={loading}
               className="flex items-center gap-1.5 text-xs font-body border border-border
-                         rounded-full px-3 py-1.5 text-text-secondary
+                         rounded-full px-3 py-1.5 text-text-secondary bg-white
                          hover:border-gold/40 hover:text-gold transition-all duration-200
                          disabled:opacity-40"
             >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-              </svg>
-              Adjust Inputs
+              ✎ Adjust Inputs
             </button>
           </div>
 
-          {/* ── Page title ── */}
+          {/* Page title */}
           <div className="text-center mb-8">
             <p className="text-muted text-xs uppercase tracking-widest font-body mb-1">Age 60</p>
-            <h1 className="font-display text-3xl font-extrabold text-text-primary tracking-tight">
+            <h1 className="font-display text-3xl font-extrabold text-ink tracking-tight">
               Your Future Self
             </h1>
           </div>
 
           {loading ? (
-            <FutureSelfSkeleton />
+            <PageSkeleton />
           ) : localData ? (
             <div className="space-y-6 stagger">
 
-              {/* ── Avatar ── */}
-              <div className="flex justify-center animate-fade-up">
-                <FutureSelfAvatar
-                  initial={user?.email?.[0]?.toUpperCase() ?? '?'}
-                  tier={tier}
-                />
+              {/* ── Personal Avatar ── */}
+              <div className="flex flex-col items-center gap-3 animate-fade-up">
+                <div className="relative">
+                  {/* Ring: gold if personal, grey if default */}
+                  <div
+                    className="w-40 h-40 rounded-full overflow-hidden shadow-xl"
+                    style={{
+                      border: isPersonalAvatar ? '4px solid #F47920' : '3px solid #C8D6E8',
+                      boxShadow: isPersonalAvatar
+                        ? '0 0 0 4px rgba(244,121,32,0.15), 0 8px 32px rgba(0,31,77,0.15)'
+                        : '0 4px 16px rgba(0,31,77,0.1)',
+                    }}
+                  >
+                    <img
+                      src={avatarSrc}
+                      alt="Your future self at 60"
+                      className="w-full h-full object-cover"
+                      onError={() => setImgError(true)}
+                    />
+                  </div>
+
+                  {/* Verified badge if using personal caricature */}
+                  {isPersonalAvatar && (
+                    <div
+                      className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full
+                                 flex items-center justify-center text-white text-sm border-2 border-white"
+                      style={{ background: '#F47920' }}
+                      title="Your personal avatar"
+                    >
+                      ✓
+                    </div>
+                  )}
+                </div>
+
+                {/* Avatar source label */}
+                <p className="text-text-secondary text-xs font-body">
+                  {isPersonalAvatar
+                    ? '📸 Your personalised avatar'
+                    : '🔮 AI-generated avatar · Upload a photo for a personalised one'
+                  }
+                </p>
+
+                {/* Upload photo CTA if using default */}
+                {!isPersonalAvatar && (
+                  <button
+                    onClick={() => navigate('/onboarding')}
+                    className="text-xs font-body font-medium px-3 py-1.5 rounded-full border
+                               transition-all duration-200"
+                    style={{ borderColor: '#F47920', color: '#F47920', background: 'rgba(244,121,32,0.05)' }}
+                  >
+                    📸 Upload photo for personal avatar
+                  </button>
+                )}
               </div>
 
               {/* ── Corpus stats ── */}
@@ -170,8 +220,9 @@ export default function FutureSelf() {
 
               {/* ── Warning if AI was unavailable ── */}
               {localData.warning && (
-                <div className="bg-gold/5 border border-gold/20 rounded-xl p-3 animate-fade-up">
-                  <p className="text-gold/70 text-xs font-body">⚠ {localData.warning}</p>
+                <div className="info-banner animate-fade-up">
+                  <span className="text-blue-600 text-sm shrink-0">ℹ</span>
+                  <p className="text-blue-800 text-xs font-body">{localData.warning}</p>
                 </div>
               )}
 
@@ -193,34 +244,36 @@ export default function FutureSelf() {
                   })}
                   disabled={loading}
                   className="flex-1 btn-ghost flex items-center justify-center gap-1.5
-                             hover:border-gold/40 hover:text-gold"
+                             hover:border-gold/40 hover:text-gold disabled:opacity-40"
                 >
                   ↺ Regenerate
                 </button>
               </div>
 
               {/* ── CTA to Time Machine ── */}
-              <div
-                className="rounded-2xl p-4 border border-frost/20 text-center animate-fade-up"
-                style={{ background: 'linear-gradient(135deg, #001015 0%, #001a27 100%)', animationDelay: '400ms' }}
-              >
-                <p className="text-frost/70 text-xs font-body mb-2">
-                  Curious how small habits change this picture?
-                </p>
-                <button
-                  onClick={() => navigate('/time-machine')}
-                  className="text-frost text-sm font-body font-medium hover:text-frost/80 transition-colors"
-                >
-                  ⏳ Try the Time Machine →
-                </button>
+              <div className="info-banner animate-fade-up" style={{ animationDelay: '400ms' }}>
+                <span className="text-blue-600 shrink-0">⏳</span>
+                <div>
+                  <p className="text-blue-800 text-xs font-body mb-1">
+                    Curious how small habits change this picture?
+                  </p>
+                  <button
+                    onClick={() => navigate('/time-machine')}
+                    className="text-blue-700 text-xs font-body font-semibold hover:underline"
+                  >
+                    Try the Time Machine →
+                  </button>
+                </div>
               </div>
 
             </div>
           ) : (
-            /* ── Empty state ── */
-            <div className="text-center py-16">
-              <p className="text-6xl mb-4">🔮</p>
-              <h2 className="font-display text-xl font-bold text-text-primary mb-2">
+            /* Empty state */
+            <div className="card text-center py-10">
+              <div className="w-20 h-20 mx-auto rounded-full overflow-hidden mb-4 border-2 border-border">
+                <img src={DEFAULT_AVATAR} alt="Future You" className="w-full h-full object-cover" />
+              </div>
+              <h2 className="font-display text-xl font-bold text-ink mb-2">
                 Your future awaits
               </h2>
               <p className="text-text-secondary text-sm font-body mb-6 max-w-xs mx-auto">
@@ -238,7 +291,7 @@ export default function FutureSelf() {
         </div>
       </div>
 
-      {/* ── Regenerate modal ── */}
+      {/* Regenerate modal */}
       <RegenerateModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}

@@ -54,16 +54,56 @@ const userSchema = new mongoose.Schema(
       amount:     { type: Number,  min: 0 },
       dayOfMonth: { type: Number,  min: 1, max: 28 },
     },
+
+    // ── Caricature / Photo fields ───────────────────────────────────────────
+    /**
+     * caricatures: array of 4 image data URLs or remote URLs.
+     * Each is either:
+     *   - "data:image/png;base64,..." (Hugging Face base64 output)
+     *   - "data:image/svg+xml;base64,..." (default SVG fallback)
+     *   - "https://api.deepai.org/..." (DeepAI remote URL)
+     */
+    caricatures: {
+      type:    [String],
+      default: [],
+    },
+
+    /**
+     * defaultCaricature: quick-access first caricature URL.
+     * Duplicates caricatures[0] for convenience.
+     */
+    defaultCaricature: {
+      type:    String,
+      default: null,
+    },
+
+    /**
+     * originalPhotoBase64: sanitised & resized user photo stored as base64.
+     * Stored for potential re-generation without re-upload.
+     * NOTE: This can be large (~100KB). For production, use cloud storage
+     * (S3/Cloudinary) and store the URL here instead.
+     */
+    originalPhotoBase64: {
+      type:    String,
+      default: null,
+      select:  false,    // never included in default queries — must be explicitly selected
+    },
+
+    /** Timestamp of last photo upload */
+    photoUploadedAt: {
+      type: Date,
+    },
   },
   {
     timestamps: true, // adds createdAt & updatedAt automatically
   }
 );
 
-// Never expose passwordHash in JSON responses
+// Never expose passwordHash or originalPhotoBase64 in JSON responses
 userSchema.methods.toPublicJSON = function () {
   const obj = this.toObject();
   delete obj.passwordHash;
+  delete obj.originalPhotoBase64;
   delete obj.__v;
   return obj;
 };

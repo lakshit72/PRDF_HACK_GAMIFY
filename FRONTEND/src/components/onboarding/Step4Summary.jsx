@@ -1,58 +1,83 @@
 /**
  * components/onboarding/Step4Summary.jsx
- * Shows a summary of all collected data, then calls /api/futureself/generate.
+ *
+ * Final onboarding step — shows a summary of collected data, then:
+ *  1. Saves profile (age, income, pran, onboardingCompleted) to backend
+ *  2. Links PRAN if provided
+ *  3. Calls /api/futureself/generate
+ *
+ * This is the ONLY step that makes API calls — all previous steps
+ * collect data locally to avoid 401 errors before the token is ready.
  */
 import { useState } from 'react';
-import { futureSelfApi } from '../../services/api.js';
-import { userApi } from '../../services/api.js';
+import { futureSelfApi, userApi, contributeApi } from '../../services/api.js';
 import { useUserData } from '../../context/UserDataContext.jsx';
-import { formatINR, Spinner, ErrorBanner } from '../ui/index.jsx';
+import { useAuth } from '../../context/AuthContext.jsx';
+import { formatINR, Spinner } from '../ui/index.jsx';
 
 const Row = ({ label, value }) => (
   <div className="flex justify-between items-center py-2.5 border-b border-border last:border-0">
     <span className="text-text-secondary text-sm font-body">{label}</span>
-    <span className="text-text-primary text-sm font-mono font-medium">{value}</span>
+    <span className="text-ink text-sm font-mono font-medium">{value}</span>
   </div>
 );
 
 export default function Step4Summary({ onBack, formData, onComplete }) {
-  const { saveFutureSelf } = useUserData();
+  const { saveFutureSelf }    = useUserData();
+  const { updateUser }        = useAuth();
   const [loading,  setLoading]  = useState(false);
-  const [apiErr,   setApiErr]   = useState(null);
-  const [genState, setGenState] = useState('idle'); // 'idle' | 'saving' | 'generating' | 'done'
+  const [stage,    setStage]    = useState('idle'); // idle | saving | generating | done
+  const [error,    setError]    = useState(null);
 
   const { email, age, income, pran, currentNpsBalance, monthlyContribution } = formData;
 
   const handleGenerate = async () => {
     setLoading(true);
-    setApiErr(null);
-    try {
-      // Save onboarding complete flag
-      setGenState('saving');
-      await userApi.updateProfile({ onboardingCompleted: true });
+    setError(null);
 
-      // Generate future self
-      setGenState('generating');
+    try {
+      // ── 1. Save profile fields ──────────────────────────────────────────
+      setStage('saving');
+      const profileUpdates = {
+        onboardingCompleted: true,
+        ...(age    !== undefined && { age:    Number(age)    }),
+        ...(income !== undefined && { income: Number(income) }),
+        ...(pran                 && { pran:   pran.toUpperCase() }),
+      };
+      await userApi.updateProfile(profileUpdates);
+      updateUser(profileUpdates);
+
+      // ── 2. Link PRAN separately if provided ────────────────────────────
+      if (pran) {
+        try {
+          await contributeApi.linkPran({ pran: pran.toUpperCase() });
+        } catch {
+          // Non-fatal — PRAN already saved via profile update
+        }
+      }
+
+      // ── 3. Generate future self ────────────────────────────────────────
+      setStage('generating');
       const { data } = await futureSelfApi.generate({
-        age:                 age ?? 25,
-        currentNpsBalance:   currentNpsBalance ?? 0,
-        monthlyContribution: monthlyContribution ?? 0,
+        age:                 Number(age)    || 25,
+        currentNpsBalance:   Number(currentNpsBalance)   || 0,
+        monthlyContribution: Number(monthlyContribution) || 0,
       });
 
       saveFutureSelf(data);
-      setGenState('done');
+      setStage('done');
+      setTimeout(() => onComplete(data), 700);
 
-      // Brief pause so user sees the "done" state
-      setTimeout(() => onComplete(data), 800);
     } catch (err) {
-      setApiErr(err.response?.data?.error ?? 'Generation failed. You can retry from the dashboard.');
-      setGenState('idle');
+      const msg = err.response?.data?.error ?? 'Something went wrong. Please try again.';
+      setError(msg);
+      setStage('idle');
     } finally {
       setLoading(false);
     }
   };
 
-  const stateMessages = {
+  const stageMsg = {
     saving:     'Saving your profile...',
     generating: 'Summoning your future self ✨',
     done:       'Welcome to your future! 🎉',
@@ -60,50 +85,59 @@ export default function Step4Summary({ onBack, formData, onComplete }) {
 
   return (
     <div className="animate-fade-up">
-      <h2 className="font-display text-2xl font-bold text-text-primary mb-1">
+      <h2 className="font-display text-2xl font-bold text-ink mb-1">
         You're all set.
       </h2>
       <p className="text-text-secondary text-sm font-body mb-6">
         Here's what we know about you. Ready to meet your future self?
       </p>
 
-      {apiErr && <div className="mb-4"><ErrorBanner message={apiErr} onDismiss={() => setApiErr(null)} /></div>}
+      {error && (
+        <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl p-3 mb-4">
+          <span className="text-red-500 shrink-0 text-sm">⚠</span>
+          <p className="text-red-700 text-sm font-body">{error}</p>
+        </div>
+      )}
 
-      {/* Summary card */}
+      {/* Summary */}
       <div className="card mb-6">
-        <Row label="Email"               value={email ?? '—'} />
-        <Row label="Age"                 value={age ? `${age} years` : '—'} />
-        <Row label="Monthly Income"      value={income ? formatINR(income) : '—'} />
-        <Row label="PRAN"                value={pran ?? 'Not linked'} />
-        <Row label="NPS Balance"         value={currentNpsBalance ? formatINR(currentNpsBalance) : '₹0'} />
-        <Row label="Monthly Contribution" value={monthlyContribution ? formatINR(monthlyContribution) + '/mo' : '₹0'} />
+        <Row label="Email"                value={email ?? '—'} />
+        <Row label="Age"                  value={age ? `${age} years` : '—'} />
+        <Row label="Monthly Income"       value={income ? formatINR(Number(income)) : '—'} />
+        <Row label="PRAN"                 value={pran ?? 'Not linked'} />
+        <Row label="NPS Balance"          value={currentNpsBalance ? formatINR(Number(currentNpsBalance)) : '₹0'} />
+        <Row label="Monthly Contribution" value={monthlyContribution ? `${formatINR(Number(monthlyContribution))}/mo` : '₹0'} />
       </div>
 
-      {/* Loading state overlay within the button area */}
-      {genState !== 'idle' && genState !== 'done' ? (
-        <div className="card text-center py-8 mb-4 glow-gold">
-          <div className="flex justify-center mb-3">
-            <Spinner size="lg" />
-          </div>
-          <p className="text-gold font-display font-semibold animate-pulse-slow">
-            {stateMessages[genState]}
+      {/* Loading progress */}
+      {stage !== 'idle' && (
+        <div className={`rounded-xl p-5 text-center mb-4 border ${
+          stage === 'done'
+            ? 'border-green-200 bg-green-50'
+            : 'border-border bg-surface-2'
+        }`}>
+          {stage !== 'done' && (
+            <div className="flex justify-center mb-2">
+              <Spinner size="lg" />
+            </div>
+          )}
+          {stage === 'done' && <p className="text-3xl mb-1">🎉</p>}
+          <p className={`font-display font-bold text-sm ${
+            stage === 'done' ? 'text-green-700' : 'text-ink'
+          }`}>
+            {stageMsg[stage]}
           </p>
         </div>
-      ) : genState === 'done' ? (
-        <div className="card text-center py-8 mb-4 border-sage/40 glow-frost">
-          <p className="text-4xl mb-2">🎉</p>
-          <p className="text-sage font-display font-semibold">{stateMessages.done}</p>
-        </div>
-      ) : null}
+      )}
 
-      {/* Actions */}
-      {genState === 'idle' && (
+      {/* Action buttons */}
+      {stage === 'idle' && (
         <div className="flex gap-3">
           <button type="button" onClick={onBack} className="btn-ghost flex-1">← Back</button>
           <button
             onClick={handleGenerate}
             disabled={loading}
-            className="btn-primary flex-[2] flex items-center justify-center gap-2 text-base"
+            className="btn-primary flex-[2] flex items-center justify-center gap-2"
           >
             ✨ Generate My Future Self
           </button>

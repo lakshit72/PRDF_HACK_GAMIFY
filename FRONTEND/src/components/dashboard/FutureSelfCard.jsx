@@ -1,6 +1,6 @@
 /**
  * components/dashboard/FutureSelfCard.jsx
- * Snapshot preview of the AI-generated future self with link to full page.
+ * NPS-themed future self preview card — official government-scheme styling.
  */
 import { Link } from 'react-router-dom';
 import { formatINR, Skeleton } from '../ui/index.jsx';
@@ -9,58 +9,72 @@ export default function FutureSelfCard({ futureSelf, loading }) {
   if (loading) {
     return (
       <div className="card">
-        <Skeleton className="h-4 w-32 mb-3" />
+        <Skeleton className="h-4 w-36 mb-3" />
         <Skeleton className="h-4 w-full mb-2" />
         <Skeleton className="h-4 w-3/4 mb-4" />
-        <Skeleton className="h-8 w-28" />
+        <div className="grid grid-cols-2 gap-2">
+          <Skeleton className="h-16 rounded-lg" />
+          <Skeleton className="h-16 rounded-lg" />
+        </div>
       </div>
     );
   }
 
   if (!futureSelf) {
     return (
-      <div className="card border-dashed border-gold/20 text-center py-6">
-        <p className="text-4xl mb-2">🔮</p>
-        <p className="text-text-secondary text-sm font-body mb-4">
-          Your future self is waiting to be discovered.
+      <div className="card border-dashed text-center py-6" style={{ borderColor: '#C8D6E8' }}>
+        <div className="w-14 h-14 rounded-full bg-surface-2 border border-border
+                        flex items-center justify-center text-2xl mx-auto mb-3">
+          🔮
+        </div>
+        <p className="text-ink font-display font-bold text-sm mb-1">
+          Future Projection Not Generated
         </p>
-        <Link to="/onboarding" className="btn-primary inline-block w-auto px-6">
-          Complete Onboarding
+        <p className="text-text-secondary text-xs font-body mb-4 max-w-xs mx-auto">
+          Complete your profile to see your projected retirement corpus.
+        </p>
+        <Link to="/onboarding" className="btn-primary inline-block w-auto px-6 text-xs py-2.5">
+          Complete Profile
         </Link>
       </div>
     );
   }
 
   return (
-    <div className="card relative overflow-hidden"
-      style={{ background: 'linear-gradient(135deg, #161d2e 0%, #1a2235 100%)' }}>
-      {/* Decorative orb */}
-      <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full
-                      bg-gradient-radial from-gold/10 to-transparent pointer-events-none" />
-
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-lg">🔮</span>
-        <h3 className="font-display text-sm font-bold text-text-primary tracking-wide uppercase">
-          Future Self Preview
-        </h3>
+    <div className="card overflow-hidden">
+      {/* Navy header band */}
+      <div className="nps-header -mx-5 -mt-5 px-5 py-3 mb-4">
+        <div className="tricolor-bar mb-2" />
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-white/60 text-[10px] uppercase tracking-widest font-body">Retirement Projection</p>
+            <h3 className="text-white font-display font-bold text-sm">Your Future Corpus</h3>
+          </div>
+          <span className="text-2xl">🔮</span>
+        </div>
       </div>
 
       {/* Avatar description */}
-      <p className="text-text-secondary text-sm font-body leading-relaxed mb-4 italic">
+      <p className="text-text-secondary text-xs font-body leading-relaxed mb-4 italic
+                    border-l-2 border-gold pl-3">
         "{futureSelf.avatarDescription}"
       </p>
 
       {/* Corpus figures */}
-      <div className="flex gap-3 mb-4">
-        <div className="flex-1 bg-surface-2/60 rounded-xl p-3">
-          <p className="text-muted text-[10px] font-body uppercase tracking-wide mb-1">Projected Corpus</p>
-          <p className="text-gold font-mono font-bold text-base">
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="rounded-lg p-3 border" style={{ background: '#FFF3E0', borderColor: '#FFCC80' }}>
+          <p className="text-[10px] font-body uppercase tracking-wide mb-1" style={{ color: '#E65100' }}>
+            Projected Corpus
+          </p>
+          <p className="font-mono font-bold text-base" style={{ color: '#BF360C' }}>
             {formatINR(futureSelf.projectedCorpus)}
           </p>
         </div>
-        <div className="flex-1 bg-surface-2/60 rounded-xl p-3">
-          <p className="text-muted text-[10px] font-body uppercase tracking-wide mb-1">Today's Value</p>
-          <p className="text-frost font-mono font-bold text-base">
+        <div className="rounded-lg p-3 border" style={{ background: '#E3F2FD', borderColor: '#90CAF9' }}>
+          <p className="text-[10px] font-body uppercase tracking-wide mb-1" style={{ color: '#1565C0' }}>
+            Today's Value
+          </p>
+          <p className="font-mono font-bold text-base" style={{ color: '#0D47A1' }}>
             {formatINR(futureSelf.inflationAdjustedCorpus)}
           </p>
         </div>
@@ -68,10 +82,13 @@ export default function FutureSelfCard({ futureSelf, loading }) {
 
       <Link
         to="/future-self"
-        className="inline-flex items-center gap-1.5 text-gold text-sm font-body font-medium
-                   hover:text-gold-dim transition-colors"
+        className="flex items-center justify-between text-xs font-body font-semibold
+                   text-gold hover:text-gold-dim transition-colors"
       >
-        Read your letter from the future →
+        <span>Read your letter from the future</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
       </Link>
     </div>
   );
