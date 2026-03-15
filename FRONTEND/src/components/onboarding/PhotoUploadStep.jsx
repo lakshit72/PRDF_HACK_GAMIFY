@@ -224,7 +224,7 @@ export default function PhotoUploadStep({ onNext, onBack }) {
             ))}
           </div>
           <p className="text-muted text-[11px] font-body text-center max-w-xs">
-            AI generation can take up to 60 seconds on a free tier. Sit tight!
+            AI generation can take up to 60 seconds. Sit tight!
           </p>
         </div>
       )}

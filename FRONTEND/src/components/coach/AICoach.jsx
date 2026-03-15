@@ -215,11 +215,11 @@ export default function AICoach() {
         .fy-cloud-scroll::-webkit-scrollbar-thumb { background: rgba(0,31,77,0.15); border-radius: 4px; }
       `}</style>
 
-      {/* Fixed container — items centered under the 600px avatar */}
+      {/* Fixed container — items centered, scales with viewport */}
       <div style={{
         position: 'fixed', bottom: 0, right: '0px',
         zIndex: 9999,
-        width: '620px',                          /* wider than avatar for cloud */
+        width: 'clamp(280px, 38vw, 640px)',
         display: 'flex', flexDirection: 'column', alignItems: 'center',
         pointerEvents: 'none',
       }}>
@@ -227,8 +227,8 @@ export default function AICoach() {
         {/* ── Thought bubble ── */}
         {open && (
           <div className="fy-cloud-enter" style={{
-            width: '520px', position: 'relative',
-            marginBottom: '-28px',
+            width: 'clamp(240px, 32vw, 540px)', position: 'relative',
+            marginBottom: 'clamp(-18px, -2vw, -28px)',
             pointerEvents: 'all',
           }}>
             {/* Cloud SVG shape */}
@@ -278,7 +278,7 @@ export default function AICoach() {
               className="fy-cloud-scroll"
               style={{
                 position: 'absolute',
-                top: '22px', left: '34px', right: '34px', bottom: '48px',
+                top: '8%', left: '8%', right: '8%', bottom: '18%',
                 overflowY: 'auto',
                 display: 'flex',
                 alignItems: currentText.length < 120 ? 'center' : 'flex-start',
@@ -288,7 +288,7 @@ export default function AICoach() {
               <p style={{
                 margin: 0,
                 width: '100%',
-                fontSize: '14.5px',
+                fontSize: 'clamp(11px, 1.1vw, 15px)',
                 lineHeight: '1.65',
                 color: '#001F4D',
                 fontFamily: 'inherit',
@@ -303,9 +303,9 @@ export default function AICoach() {
             <button
               onClick={() => setOpen(false)}
               style={{
-                position: 'absolute', top: '14px', right: '20px',
+                position: 'absolute', top: '6%', right: '6%',
                 background: 'none', border: 'none', cursor: 'pointer',
-                color: '#b0bcc8', fontSize: '18px', lineHeight: 1,
+                color: '#b0bcc8', fontSize: 'clamp(14px, 1.2vw, 18px)', lineHeight: 1,
                 padding: '0', fontFamily: 'inherit',
                 pointerEvents: 'all',
               }}
@@ -335,7 +335,7 @@ export default function AICoach() {
             alt="Your future self"
             className={avatarAnim}
             style={{
-              width: '600px', height: 'auto', display: 'block',
+              width: 'clamp(180px, 30vw, 600px)', height: 'auto', display: 'block',
               mixBlendMode: 'multiply',
               filter: 'brightness(1.05) contrast(1.08)',
               transformOrigin: 'center bottom',
@@ -347,7 +347,7 @@ export default function AICoach() {
         {/* ── Input bar — below the avatar, centered ── */}
         {open && (
           <div style={{
-            width: '520px',
+            width: 'clamp(220px, 28vw, 520px)',
             padding: '4px 0 12px',
             display: 'flex', flexDirection: 'column', gap: '7px',
             pointerEvents: 'all',
@@ -366,11 +366,11 @@ export default function AICoach() {
                 }}/>
                 {LANG_OPTIONS.map(o => (
                   <button key={o.id} onClick={() => setLang(o.id)} style={{
-                    width: '30px', height: '22px', borderRadius: '6px',
+                    width: 'clamp(22px,2.2vw,32px)', height: 'clamp(17px,1.7vw,24px)', borderRadius: '6px',
                     border: `1.5px solid ${lang === o.id ? '#F47920' : 'rgba(0,31,77,0.2)'}`,
                     background: lang === o.id ? 'rgba(244,121,32,0.1)' : 'rgba(255,255,255,0.8)',
                     color: lang === o.id ? '#F47920' : '#64748b',
-                    fontSize: '9px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit',
+                    fontSize: 'clamp(7px,0.7vw,10px)', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>{o.label}</button>
                 ))}
@@ -385,8 +385,8 @@ export default function AICoach() {
               {PROMPTS.map(p => (
                 <button key={p.label} onClick={() => sendMessage(p.query)} disabled={busy}
                   style={{
-                    flexShrink: 0, fontSize: '10.5px', fontFamily: 'inherit',
-                    padding: '5px 10px', borderRadius: '20px',
+                    flexShrink: 0, fontSize: 'clamp(8px,0.85vw,11px)', fontFamily: 'inherit',
+                    padding: 'clamp(3px,0.4vw,6px) clamp(6px,0.8vw,11px)', borderRadius: '20px',
                     border: '1.5px solid rgba(0,31,77,0.14)',
                     background: 'rgba(255,255,255,0.88)', color: '#001F4D',
                     cursor: busy ? 'not-allowed' : 'pointer',
@@ -407,8 +407,8 @@ export default function AICoach() {
                 style={{
                   flex: 1, resize: 'none',
                   border: '1.5px solid rgba(0,31,77,0.18)',
-                  borderRadius: '14px', padding: '9px 14px',
-                  fontSize: '13px', fontFamily: 'inherit',
+                  borderRadius: '12px', padding: 'clamp(6px,0.7vw,10px) clamp(8px,1vw,14px)',
+                  fontSize: 'clamp(11px,1vw,13px)', fontFamily: 'inherit',
                   color: '#001F4D', background: 'rgba(255,255,255,0.92)',
                   outline: 'none', maxHeight: '80px',
                   overflowY: 'auto', lineHeight: '1.4',
@@ -420,7 +420,7 @@ export default function AICoach() {
                 onClick={() => sendMessage(input)}
                 disabled={!input.trim() || busy}
                 style={{
-                  width: '40px', height: '40px', borderRadius: '12px',
+                  width: 'clamp(30px,2.8vw,40px)', height: 'clamp(30px,2.8vw,40px)', borderRadius: '10px',
                   border: 'none', flexShrink: 0,
                   background: input.trim() && !busy ? '#F47920' : '#E2E8F0',
                   cursor: input.trim() && !busy ? 'pointer' : 'not-allowed',
@@ -441,9 +441,9 @@ export default function AICoach() {
         {!open && unread === 0 && (
           <div style={{
             marginBottom: '8px', pointerEvents: 'none',
-            fontSize: '11px', color: 'rgba(0,31,77,0.35)',
+            fontSize: 'clamp(9px, 0.9vw, 11px)', color: 'rgba(0,31,77,0.35)',
             fontFamily: 'inherit', textAlign: 'center',
-            width: '600px',
+            width: 'clamp(180px, 30vw, 600px)',
           }}>
             tap to chat
           </div>
