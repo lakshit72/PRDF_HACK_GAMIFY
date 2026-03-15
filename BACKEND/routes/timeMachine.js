@@ -13,31 +13,22 @@
  *        app.use('/api', fsRoutes);
  */
 
-import { Router } from "express";
-import { body, validationResult } from "express-validator";
-import OpenAI from "openai";
-import authMiddleware from "../middleware/auth.js";
+import { Router }  from 'express';
+import { body, validationResult } from 'express-validator';
+import axios       from 'axios';
+import authMiddleware from '../middleware/auth.js';
 
 const router = Router();
 
-// Lazy-init OpenAI client so the module loads even without the key set
-// (key is only required when the endpoint is actually hit)
-let openai;
-const getOpenAI = () => {
-  if (!openai) {
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error("OPENAI_API_KEY environment variable is not set");
-    }
-    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  }
-  return openai;
-};
+// HF Router — same free endpoint used by aiCoachService.js
+const HF_ROUTER_URL = 'https://router.huggingface.co/v1/chat/completions';
+const HF_MODEL      = 'meta-llama/Llama-3.1-8B-Instruct';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const RETIREMENT_AGE = 60;
-const DEFAULT_RETURN_RATE = 10; // annual %
-const DEFAULT_INFLATION = 6; // annual %
+const RETIREMENT_AGE       = 60;
+const DEFAULT_RETURN_RATE  = 10; // annual %
+const DEFAULT_INFLATION    = 6;  // annual %
 
 // ─── Helper: format rupees as "₹X lakhs" / "₹X crores" ──────────────────────
 
@@ -48,7 +39,7 @@ const formatRupees = (amount) => {
   if (amount >= 1_00_000) {
     return `₹${(amount / 1_00_000).toFixed(2)} lakhs`;
   }
-  return `₹${Math.round(amount).toLocaleString("en-IN")}`;
+  return `₹${Math.round(amount).toLocaleString('en-IN')}`;
 };
 
 // ─── Core financial helper ────────────────────────────────────────────────────
@@ -74,12 +65,7 @@ const formatRupees = (amount) => {
  * @param {number} months                – investment horizon in months
  * @returns {number}                     – future value (₹)
  */
-const compoundInterest = (
-  currentBalance,
-  monthlyContribution,
-  annualReturnPct,
-  months,
-) => {
+const compoundInterest = (currentBalance, monthlyContribution, annualReturnPct, months) => {
   const r = annualReturnPct / 12 / 100; // monthly rate as decimal
 
   // Edge-case: 0% return → simple sum
@@ -87,8 +73,8 @@ const compoundInterest = (
     return currentBalance + monthlyContribution * months;
   }
 
-  const growth = Math.pow(1 + r, months);
-  const lumpSum = currentBalance * growth;
+  const growth     = Math.pow(1 + r, months);
+  const lumpSum    = currentBalance * growth;
   const annuityDue = monthlyContribution * ((growth - 1) / r) * (1 + r);
 
   return lumpSum + annuityDue;
@@ -118,25 +104,21 @@ const handleValidation = (req, res) => {
   return false;
 };
 
-// ─── OpenAI call with graceful fallback ───────────────────────────────────────
+// ─── HF Router call with graceful fallback ────────────────────────────────────
 
 /**
  * generateFutureSelfContent
- * Calls OpenAI to produce an avatar description and a letter from the future self.
- * Returns fallback strings on any error so the financial data is always returned.
+ * Calls HF Router (Llama-3.1-8B) to produce an avatar description and letter.
+ * Falls back to a template letter so financial data is always returned.
  *
  * @param {number} currentAge
  * @param {number} projectedCorpus       – nominal future value (₹)
  * @param {number} inflationAdjustedCorpus – today's value (₹)
  * @returns {Promise<{ avatarDescription: string, futureLetter: string, aiError?: string }>}
  */
-const generateFutureSelfContent = async (
-  currentAge,
-  projectedCorpus,
-  inflationAdjustedCorpus,
-) => {
+const generateFutureSelfContent = async (currentAge, projectedCorpus, inflationAdjustedCorpus) => {
   const yearsLeft = RETIREMENT_AGE - currentAge;
-  const prompt = `
+  const prompt    = `
 You are an AI that writes empathetic, encouraging letters from a person's future self.
 
 Given the following details:
@@ -150,43 +132,57 @@ First, write ONE sentence (max 25 words) describing the future self's lifestyle 
 Then write a warm, motivating letter from their 60-year-old self. Include specific details about lifestyle based on the corpus. Keep it under 150 words. Do not give financial advice, just emotional connection. Label it "LETTER:".
 `.trim();
 
-  try {
-    const client = getOpenAI();
-    const response = await client.chat.completions.create({
-      model: "gpt-4o-mini", // fast + cheap; swap for 'gpt-4o' for richer output
-      max_tokens: 400,
-      temperature: 0.85, // slight warmth/creativity
-      messages: [
-        {
-          role: "system",
-          content:
-            "You generate emotionally resonant, concise content for a financial wellbeing app. Always respond with AVATAR: and LETTER: sections.",
-        },
-        { role: "user", content: prompt },
-      ],
-    });
+  const HF_TOKEN = process.env.HF_API_TOKEN;
 
-    const text = response.choices[0]?.message?.content ?? "";
+  // If no HF token, skip straight to fallback
+  if (!HF_TOKEN) {
+    console.warn('[FutureSelf] HF_API_TOKEN not set — using fallback letter');
+    return {
+      avatarDescription: 'A content 60-year-old, financially secure and at peace.',
+      futureLetter:      buildFallbackLetter(currentAge, inflationAdjustedCorpus),
+    };
+  }
+
+  try {
+    const response = await axios.post(
+      HF_ROUTER_URL,
+      {
+        model:       HF_MODEL,
+        max_tokens:  400,
+        temperature: 0.85,
+        messages: [
+          {
+            role:    'system',
+            content: 'You generate emotionally resonant, concise content for a financial wellbeing app. Always respond with exactly two labeled sections: AVATAR: (one vivid sentence, max 25 words) and LETTER: (warm motivating letter under 150 words from the user\'s 60-year-old self). No other text.',
+          },
+          { role: 'user', content: prompt },
+        ],
+      },
+      {
+        headers: {
+          Authorization:  `Bearer ${HF_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 30_000,
+      }
+    );
+
+    const text        = response.data?.choices?.[0]?.message?.content ?? '';
     const avatarMatch = text.match(/AVATAR:\s*(.*?)(?=LETTER:|$)/s);
     const letterMatch = text.match(/LETTER:\s*([\s\S]*)/);
 
-    const avatarDescription =
-      avatarMatch?.[1]?.trim() ??
-      "A relaxed 60-year-old enjoying a quiet morning on a sunlit veranda.";
-    const futureLetter =
-      letterMatch?.[1]?.trim() ??
-      buildFallbackLetter(currentAge, inflationAdjustedCorpus);
+    const avatarDescription = avatarMatch?.[1]?.trim()
+      || 'A relaxed 60-year-old enjoying a quiet morning on a sunlit veranda.';
+    const futureLetter      = letterMatch?.[1]?.trim()
+      || buildFallbackLetter(currentAge, inflationAdjustedCorpus);
 
     return { avatarDescription, futureLetter };
   } catch (err) {
-    // Log for ops visibility but don't crash the request
-    console.error("[OpenAI] generation failed:", err?.message ?? err);
-
+    console.error('[FutureSelf] HF generation failed:', err?.message ?? err);
     return {
-      avatarDescription:
-        "A content 60-year-old, financially secure and at peace.",
-      futureLetter: buildFallbackLetter(currentAge, inflationAdjustedCorpus),
-      aiError: "AI generation unavailable – showing calculated data only.",
+      avatarDescription: 'A content 60-year-old, financially secure and at peace.',
+      futureLetter:      buildFallbackLetter(currentAge, inflationAdjustedCorpus),
+      aiError:           'AI generation unavailable – showing calculated data only.',
     };
   }
 };
@@ -208,23 +204,18 @@ const buildFallbackLetter = (currentAge, inflationAdjustedCorpus) => {
 // ─── Route 1: POST /api/futureself/generate ───────────────────────────────────
 
 const futureSelfValidation = [
-  body("age")
-    .isInt({ min: 18, max: 59 })
-    .withMessage("Age must be between 18 and 59"),
-  body("currentNpsBalance")
-    .isFloat({ min: 0 })
-    .withMessage("currentNpsBalance must be a non-negative number"),
-  body("monthlyContribution")
-    .isFloat({ min: 0 })
-    .withMessage("monthlyContribution must be a non-negative number"),
-  body("expectedReturn")
+  body('age')
+    .isInt({ min: 18, max: 59 }).withMessage('Age must be between 18 and 59'),
+  body('currentNpsBalance')
+    .isFloat({ min: 0 }).withMessage('currentNpsBalance must be a non-negative number'),
+  body('monthlyContribution')
+    .isFloat({ min: 0 }).withMessage('monthlyContribution must be a non-negative number'),
+  body('expectedReturn')
     .optional()
-    .isFloat({ min: 0, max: 50 })
-    .withMessage("expectedReturn must be between 0 and 50"),
-  body("inflation")
+    .isFloat({ min: 0, max: 50 }).withMessage('expectedReturn must be between 0 and 50'),
+  body('inflation')
     .optional()
-    .isFloat({ min: 0, max: 30 })
-    .withMessage("inflation must be between 0 and 30"),
+    .isFloat({ min: 0, max: 30 }).withMessage('inflation must be between 0 and 30'),
 ];
 
 /**
@@ -233,7 +224,7 @@ const futureSelfValidation = [
  * @access  Protected (JWT required)
  */
 router.post(
-  "/futureself/generate",
+  '/futureself/generate',
   authMiddleware,
   futureSelfValidation,
   async (req, res, next) => {
@@ -245,43 +236,39 @@ router.post(
         currentNpsBalance,
         monthlyContribution,
         expectedReturn = DEFAULT_RETURN_RATE,
-        inflation = DEFAULT_INFLATION,
+        inflation      = DEFAULT_INFLATION,
       } = req.body;
 
       // ── Financial calculations ──────────────────────────────────────────────
 
-      const months = (RETIREMENT_AGE - age) * 12;
-      const projectedCorpus = compoundInterest(
+      const months              = (RETIREMENT_AGE - age) * 12;
+      const projectedCorpus     = compoundInterest(
         currentNpsBalance,
         monthlyContribution,
         expectedReturn,
-        months,
+        months
       );
       const inflationAdjustedCorpus = inflationAdjust(
         projectedCorpus,
         inflation,
-        RETIREMENT_AGE - age,
+        RETIREMENT_AGE - age
       );
 
       // ── AI generation (non-blocking failure) ───────────────────────────────
 
       const { avatarDescription, futureLetter, aiError } =
-        await generateFutureSelfContent(
-          age,
-          projectedCorpus,
-          inflationAdjustedCorpus,
-        );
+        await generateFutureSelfContent(age, projectedCorpus, inflationAdjustedCorpus);
 
       const responseBody = {
-        projectedCorpus: Math.round(projectedCorpus),
-        inflationAdjustedCorpus: Math.round(inflationAdjustedCorpus),
+        projectedCorpus:          Math.round(projectedCorpus),
+        inflationAdjustedCorpus:  Math.round(inflationAdjustedCorpus),
         avatarDescription,
         futureLetter,
         meta: {
           yearsToRetirement: RETIREMENT_AGE - age,
           monthsToRetirement: months,
           assumedAnnualReturn: `${expectedReturn}%`,
-          assumedInflation: `${inflation}%`,
+          assumedInflation:    `${inflation}%`,
         },
       };
 
@@ -292,35 +279,28 @@ router.post(
     } catch (err) {
       next(err);
     }
-  },
+  }
 );
 
 // ─── Route 2: POST /api/timemachine/calculate ─────────────────────────────────
 
 const timeMachineValidation = [
-  body("currentAge")
-    .isInt({ min: 18, max: 59 })
-    .withMessage("currentAge must be between 18 and 59"),
-  body("currentMonthlySpending")
-    .isFloat({ min: 0 })
-    .withMessage("currentMonthlySpending must be a non-negative number"),
-  body("newMonthlySpending")
-    .isFloat({ min: 0 })
-    .withMessage("newMonthlySpending must be a non-negative number")
+  body('currentAge')
+    .isInt({ min: 18, max: 59 }).withMessage('currentAge must be between 18 and 59'),
+  body('currentMonthlySpending')
+    .isFloat({ min: 0 }).withMessage('currentMonthlySpending must be a non-negative number'),
+  body('newMonthlySpending')
+    .isFloat({ min: 0 }).withMessage('newMonthlySpending must be a non-negative number')
     .custom((val, { req }) => {
       if (parseFloat(val) > parseFloat(req.body.currentMonthlySpending)) {
-        throw new Error(
-          "newMonthlySpending cannot exceed currentMonthlySpending",
-        );
+        throw new Error('newMonthlySpending cannot exceed currentMonthlySpending');
       }
       return true;
     }),
-  body("currentNpsBalance")
-    .isFloat({ min: 0 })
-    .withMessage("currentNpsBalance must be a non-negative number"),
-  body("currentMonthlyContribution")
-    .isFloat({ min: 0 })
-    .withMessage("currentMonthlyContribution must be a non-negative number"),
+  body('currentNpsBalance')
+    .isFloat({ min: 0 }).withMessage('currentNpsBalance must be a non-negative number'),
+  body('currentMonthlyContribution')
+    .isFloat({ min: 0 }).withMessage('currentMonthlyContribution must be a non-negative number'),
 ];
 
 /**
@@ -329,7 +309,7 @@ const timeMachineValidation = [
  * @access  Protected (JWT required)
  */
 router.post(
-  "/timemachine/calculate",
+  '/timemachine/calculate',
   authMiddleware,
   timeMachineValidation,
   async (req, res, next) => {
@@ -345,7 +325,7 @@ router.post(
         expectedReturn = DEFAULT_RETURN_RATE,
       } = req.body;
 
-      const months = (RETIREMENT_AGE - currentAge) * 12;
+      const months      = (RETIREMENT_AGE - currentAge) * 12;
       const extraSaving = currentMonthlySpending - newMonthlySpending; // ₹ redirected to NPS
 
       // Corpus without behaviour change
@@ -353,7 +333,7 @@ router.post(
         currentNpsBalance,
         currentMonthlyContribution,
         expectedReturn,
-        months,
+        months
       );
 
       // Corpus with extra saving added to monthly contribution
@@ -361,29 +341,25 @@ router.post(
         currentNpsBalance,
         currentMonthlyContribution + extraSaving,
         expectedReturn,
-        months,
+        months
       );
 
       const extraCorpusAt60 = Math.round(improvedCorpus - baseCorpus);
 
       // ── Human-readable message ──────────────────────────────────────────────
 
-      const savingFormatted = formatRupees(extraSaving);
-      const extraFormatted = formatRupees(extraCorpusAt60);
-      const spendingLabel = inferSpendingLabel(
-        currentMonthlySpending,
-        newMonthlySpending,
-      );
+      const savingFormatted    = formatRupees(extraSaving);
+      const extraFormatted     = formatRupees(extraCorpusAt60);
+      const spendingLabel      = inferSpendingLabel(currentMonthlySpending, newMonthlySpending);
 
-      const message =
-        extraCorpusAt60 > 0
-          ? `If you save ${savingFormatted} every month on ${spendingLabel}, ` +
-            `you'll have an extra ${extraFormatted} at retirement!`
-          : "No change in spending — your retirement corpus remains the same.";
+      const message = extraCorpusAt60 > 0
+        ? `If you save ${savingFormatted} every month on ${spendingLabel}, ` +
+          `you'll have an extra ${extraFormatted} at retirement!`
+        : 'No change in spending — your retirement corpus remains the same.';
 
       return res.status(200).json({
         extraCorpusAt60,
-        baseCorpusAt60: Math.round(baseCorpus),
+        baseCorpusAt60:     Math.round(baseCorpus),
         improvedCorpusAt60: Math.round(improvedCorpus),
         monthlySavingRedirected: extraSaving,
         message,
@@ -395,7 +371,7 @@ router.post(
     } catch (err) {
       next(err);
     }
-  },
+  }
 );
 
 // ─── Helper: infer a label from spending amounts for the message ──────────────
@@ -406,10 +382,10 @@ router.post(
  */
 const inferSpendingLabel = (currentSpend, newSpend) => {
   const saving = currentSpend - newSpend;
-  if (saving <= 200) return "small daily habits";
-  if (saving <= 600) return "coffee & snacks";
-  if (saving <= 1500) return "dining out";
-  return "discretionary spending";
+  if (saving <= 200) return 'small daily habits';
+  if (saving <= 600) return 'coffee & snacks';
+  if (saving <= 1500) return 'dining out';
+  return 'discretionary spending';
 };
 
 export default router;
