@@ -5,6 +5,7 @@
  * - Thought bubble above avatar, scrollable text, centered, current response only
  * - Input bar sits BELOW the avatar at the very bottom
  * - No typing dots — cloud is empty/cursor while waiting
+ * - Fully responsive: scales from 14" laptops (~1366px) to 24"+ monitors
  */
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth }     from '../../context/AuthContext.jsx';
@@ -77,14 +78,12 @@ export default function AICoach() {
   useEffect(() => { if (open) inputRef.current?.focus(); }, [open]);
   useEffect(() => { if (open) setUnread(0); }, [open]);
 
-  // Auto-scroll cloud text as it streams
   useEffect(() => {
     if (cloudTextRef.current) {
       cloudTextRef.current.scrollTop = cloudTextRef.current.scrollHeight;
     }
   }, [currentText]);
 
-  // ── Stream text word by word ──────────────────────────────────────────────
   const streamText = useCallback(async (text) => {
     const words = text.split(' ');
     setCurrentText('');
@@ -95,7 +94,6 @@ export default function AICoach() {
     }
   }, []);
 
-  // ── Greeting ──────────────────────────────────────────────────────────────
   const playGreeting = useCallback(async () => {
     setOpen(true);
     setCurrentText('');
@@ -108,23 +106,19 @@ export default function AICoach() {
     setPoseIdx(POSE_IDLE);
   }, [streamText]);
 
-  // ── Greeting: fire every time /dashboard is navigated to ────────────────
-  // We use a counter ref instead of pathname+key because location.key can be
-  // 'default' on first load and identical across StrictMode double-invokes.
   const greetCount = useRef(0);
 
   useEffect(() => {
     if (location.pathname !== '/dashboard') return;
     greetCount.current += 1;
-    const id = greetCount.current;           // capture snapshot
+    const id = greetCount.current;
     const t = setTimeout(() => {
-      if (greetCount.current !== id) return; // navigation happened again, skip
+      if (greetCount.current !== id) return;
       playGreeting();
     }, 800);
     return () => clearTimeout(t);
-  }, [location.pathname, location.key]);     // eslint-disable-line
+  }, [location.pathname, location.key]); // eslint-disable-line
 
-  // ── Send message ──────────────────────────────────────────────────────────
   const sendMessage = useCallback(async (text) => {
     const t = text.trim();
     if (!t || typing || streaming) return;
@@ -158,7 +152,6 @@ export default function AICoach() {
   const poseSrc = poses[poseIdx] ?? poses[0];
   const busy    = typing || streaming;
 
-  // Pick avatar animation class based on pose
   const avatarAnim = {
     [POSE_IDLE]:     'fy-idle',
     [POSE_THINKING]: 'fy-thinking',
@@ -170,26 +163,21 @@ export default function AICoach() {
     <>
       <style>{`
         /* ── Avatar animations ──────────────────────────────────── */
-
-        /* Idle: gentle float up/down + very slight rock */
         @keyframes fy-float {
           0%,100% { transform: translateY(0px)   rotate(0deg);   }
           30%     { transform: translateY(-8px)  rotate(0.6deg); }
           60%     { transform: translateY(-5px)  rotate(-0.4deg);}
         }
-        /* Thinking: lean forward pulse, slow */
         @keyframes fy-think {
           0%,100% { transform: translateY(0)    rotate(0deg);    }
           50%     { transform: translateY(-4px) rotate(-2.5deg); }
         }
-        /* Talking: quick nod side-to-side */
         @keyframes fy-talk {
           0%,100% { transform: rotate(0deg)    translateY(0);    }
           20%     { transform: rotate(1.8deg)  translateY(-3px); }
           50%     { transform: rotate(-1.5deg) translateY(-5px); }
           75%     { transform: rotate(1.2deg)  translateY(-3px); }
         }
-        /* Happy: bouncy jump */
         @keyframes fy-bounce-up {
           0%,100% { transform: translateY(0)    scale(1);    }
           30%     { transform: translateY(-16px) scale(1.04); }
@@ -213,30 +201,65 @@ export default function AICoach() {
         .fy-cloud-scroll { scrollbar-width: thin; scrollbar-color: rgba(0,31,77,0.15) transparent; }
         .fy-cloud-scroll::-webkit-scrollbar { width: 4px; }
         .fy-cloud-scroll::-webkit-scrollbar-thumb { background: rgba(0,31,77,0.15); border-radius: 4px; }
+
+        /* ── Laptop safety: prevent entire coach from overflowing ── */
+        @media (max-height: 768px) {
+          .fy-coach-wrap { bottom: 0 !important; }
+        }
       `}</style>
 
-      {/* Fixed container — items centered, scales with viewport */}
-      <div style={{
-        position: 'fixed', bottom: 0, right: '0px',
-        zIndex: 9999,
-        width: 'clamp(280px, 38vw, 640px)',
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
-        pointerEvents: 'none',
-      }}>
+      {/*
+        ┌─────────────────────────────────────────────────────────────┐
+        │  SIZING STRATEGY                                             │
+        │  Avatar:    clamp(120px, 18vw, 280px)  ← was 30vw (too big) │
+        │  Container: clamp(200px, 22vw, 380px)  ← tighter envelope   │
+        │  Cloud:     clamp(180px, 20vw, 340px)  ← proportional       │
+        │  All use min/preferred/max so 14" and 24"+ both look right   │
+        └─────────────────────────────────────────────────────────────┘
+      */}
+
+      {/* Fixed container — anchored bottom-right, scales with viewport */}
+      <div
+        className="fy-coach-wrap"
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          right: 0,
+          zIndex: 9999,
+          /* Container width: 22vw sits comfortably on 1366px (≈300px) and 1920px (≈420px) */
+          width: 'clamp(200px, 22vw, 380px)',
+          /* Hard cap on total height so panel never overflows on short laptop screens */
+          maxHeight: '96vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          pointerEvents: 'none',
+          overflow: 'visible',
+        }}
+      >
 
         {/* ── Thought bubble ── */}
         {open && (
-          <div className="fy-cloud-enter" style={{
-            width: 'clamp(240px, 32vw, 540px)', position: 'relative',
-            marginBottom: 'clamp(-18px, -2vw, -28px)',
-            pointerEvents: 'all',
-          }}>
+          <div
+            className="fy-cloud-enter"
+            style={{
+              /* Cloud: slightly narrower than container so it doesn't clip */
+              width: 'clamp(180px, 20vw, 340px)',
+              position: 'relative',
+              /* Negative margin pulls cloud down to overlap avatar top */
+              marginBottom: 'clamp(-14px, -1.5vw, -22px)',
+              pointerEvents: 'all',
+              flexShrink: 1,
+            }}
+          >
             {/* Cloud SVG shape */}
             <svg
               viewBox="0 0 520 290"
               xmlns="http://www.w3.org/2000/svg"
               style={{
-                display: 'block', width: '100%',
+                display: 'block',
+                width: '100%',
                 filter: 'drop-shadow(0 6px 22px rgba(0,31,77,0.14))',
                 overflow: 'visible',
               }}
@@ -288,7 +311,8 @@ export default function AICoach() {
               <p style={{
                 margin: 0,
                 width: '100%',
-                fontSize: 'clamp(11px, 1.1vw, 15px)',
+                /* Font scales: 10px on very small, 1.1vw on mid, 14px max */
+                fontSize: 'clamp(10px, 1.0vw, 14px)',
                 lineHeight: '1.65',
                 color: '#001F4D',
                 fontFamily: 'inherit',
@@ -299,13 +323,13 @@ export default function AICoach() {
               </p>
             </div>
 
-            {/* Close button — top right corner of cloud */}
+            {/* Close button */}
             <button
               onClick={() => setOpen(false)}
               style={{
                 position: 'absolute', top: '6%', right: '6%',
                 background: 'none', border: 'none', cursor: 'pointer',
-                color: '#b0bcc8', fontSize: 'clamp(14px, 1.2vw, 18px)', lineHeight: 1,
+                color: '#b0bcc8', fontSize: 'clamp(13px, 1.1vw, 17px)', lineHeight: 1,
                 padding: '0', fontFamily: 'inherit',
                 pointerEvents: 'all',
               }}
@@ -317,17 +341,19 @@ export default function AICoach() {
         <div
           onClick={() => setOpen(v => !v)}
           style={{
-            position: 'relative', cursor: 'pointer',
+            position: 'relative',
+            cursor: 'pointer',
             pointerEvents: 'all',
+            flexShrink: 0,
           }}
         >
           {unread > 0 && !open && (
             <div style={{
-              position: 'absolute', top: '16px', left: '2px', zIndex: 10,
-              width: '20px', height: '20px', borderRadius: '50%',
+              position: 'absolute', top: '14px', left: '2px', zIndex: 10,
+              width: '18px', height: '18px', borderRadius: '50%',
               background: '#E63946',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '10px', fontWeight: '700', color: 'white',
+              fontSize: '9px', fontWeight: '700', color: 'white',
             }}>{unread}</div>
           )}
           <img
@@ -335,7 +361,16 @@ export default function AICoach() {
             alt="Your future self"
             className={avatarAnim}
             style={{
-              width: 'clamp(180px, 30vw, 600px)', height: 'auto', display: 'block',
+              /*
+               * KEY FIX — was clamp(180px, 30vw, 600px):
+               *   30vw on 1366px = 410px → overflows a 768px-tall laptop screen
+               *   18vw on 1366px ≈ 246px → fits perfectly with room for cloud + input
+               *   18vw on 1920px ≈ 346px → nice and visible on large monitors
+               *   Hard cap at 300px keeps it sane on ultra-wide displays
+               */
+              width: 'clamp(120px, 18vw, 300px)',
+              height: 'auto',
+              display: 'block',
               mixBlendMode: 'multiply',
               filter: 'brightness(1.05) contrast(1.08)',
               transformOrigin: 'center bottom',
@@ -344,13 +379,16 @@ export default function AICoach() {
           />
         </div>
 
-        {/* ── Input bar — below the avatar, centered ── */}
+        {/* ── Input bar — below the avatar ── */}
         {open && (
           <div style={{
-            width: 'clamp(220px, 28vw, 520px)',
-            padding: '4px 0 12px',
-            display: 'flex', flexDirection: 'column', gap: '7px',
+            width: 'clamp(180px, 20vw, 340px)',
+            padding: 'clamp(2px, 0.3vh, 4px) 0 clamp(6px, 1vh, 12px)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 'clamp(4px, 0.6vh, 7px)',
             pointerEvents: 'all',
+            flexShrink: 0,
           }}>
 
             {/* Lang switcher row */}
@@ -366,11 +404,14 @@ export default function AICoach() {
                 }}/>
                 {LANG_OPTIONS.map(o => (
                   <button key={o.id} onClick={() => setLang(o.id)} style={{
-                    width: 'clamp(22px,2.2vw,32px)', height: 'clamp(17px,1.7vw,24px)', borderRadius: '6px',
+                    width: 'clamp(20px, 2vw, 30px)',
+                    height: 'clamp(16px, 1.6vw, 22px)',
+                    borderRadius: '6px',
                     border: `1.5px solid ${lang === o.id ? '#F47920' : 'rgba(0,31,77,0.2)'}`,
                     background: lang === o.id ? 'rgba(244,121,32,0.1)' : 'rgba(255,255,255,0.8)',
                     color: lang === o.id ? '#F47920' : '#64748b',
-                    fontSize: 'clamp(7px,0.7vw,10px)', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit',
+                    fontSize: 'clamp(7px, 0.65vw, 9px)',
+                    fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>{o.label}</button>
                 ))}
@@ -379,14 +420,17 @@ export default function AICoach() {
 
             {/* Prompt chips */}
             <div style={{
-              display: 'flex', gap: '5px',
+              display: 'flex', gap: '4px',
               overflowX: 'auto', paddingBottom: '1px',
             }}>
               {PROMPTS.map(p => (
                 <button key={p.label} onClick={() => sendMessage(p.query)} disabled={busy}
                   style={{
-                    flexShrink: 0, fontSize: 'clamp(8px,0.85vw,11px)', fontFamily: 'inherit',
-                    padding: 'clamp(3px,0.4vw,6px) clamp(6px,0.8vw,11px)', borderRadius: '20px',
+                    flexShrink: 0,
+                    fontSize: 'clamp(7px, 0.75vw, 10px)',
+                    fontFamily: 'inherit',
+                    padding: 'clamp(2px, 0.3vw, 5px) clamp(5px, 0.7vw, 10px)',
+                    borderRadius: '20px',
                     border: '1.5px solid rgba(0,31,77,0.14)',
                     background: 'rgba(255,255,255,0.88)', color: '#001F4D',
                     cursor: busy ? 'not-allowed' : 'pointer',
@@ -397,7 +441,7 @@ export default function AICoach() {
             </div>
 
             {/* Text input */}
-            <div style={{ display: 'flex', gap: '7px', alignItems: 'flex-end' }}>
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'flex-end' }}>
               <textarea
                 ref={inputRef} value={input}
                 onChange={e => setInput(e.target.value)}
@@ -407,10 +451,12 @@ export default function AICoach() {
                 style={{
                   flex: 1, resize: 'none',
                   border: '1.5px solid rgba(0,31,77,0.18)',
-                  borderRadius: '12px', padding: 'clamp(6px,0.7vw,10px) clamp(8px,1vw,14px)',
-                  fontSize: 'clamp(11px,1vw,13px)', fontFamily: 'inherit',
+                  borderRadius: '12px',
+                  padding: 'clamp(5px, 0.6vw, 9px) clamp(7px, 0.9vw, 12px)',
+                  fontSize: 'clamp(10px, 0.9vw, 12px)',
+                  fontFamily: 'inherit',
                   color: '#001F4D', background: 'rgba(255,255,255,0.92)',
-                  outline: 'none', maxHeight: '80px',
+                  outline: 'none', maxHeight: '70px',
                   overflowY: 'auto', lineHeight: '1.4',
                   opacity: busy ? 0.6 : 1,
                   boxShadow: '0 1px 8px rgba(0,31,77,0.08)',
@@ -420,7 +466,9 @@ export default function AICoach() {
                 onClick={() => sendMessage(input)}
                 disabled={!input.trim() || busy}
                 style={{
-                  width: 'clamp(30px,2.8vw,40px)', height: 'clamp(30px,2.8vw,40px)', borderRadius: '10px',
+                  width: 'clamp(28px, 2.4vw, 36px)',
+                  height: 'clamp(28px, 2.4vw, 36px)',
+                  borderRadius: '10px',
                   border: 'none', flexShrink: 0,
                   background: input.trim() && !busy ? '#F47920' : '#E2E8F0',
                   cursor: input.trim() && !busy ? 'pointer' : 'not-allowed',
@@ -428,7 +476,7 @@ export default function AICoach() {
                   transition: 'background 0.15s',
                   boxShadow: input.trim() && !busy ? '0 2px 10px rgba(244,121,32,0.4)' : 'none',
                 }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
                   stroke={input.trim() && !busy ? 'white' : '#94a3b8'} strokeWidth="2.5">
                   <line x1="22" y1="2" x2="11" y2="13"/>
                   <polygon points="22 2 15 22 11 13 2 9 22 2"/>
@@ -440,10 +488,10 @@ export default function AICoach() {
 
         {!open && unread === 0 && (
           <div style={{
-            marginBottom: '8px', pointerEvents: 'none',
-            fontSize: 'clamp(9px, 0.9vw, 11px)', color: 'rgba(0,31,77,0.35)',
+            marginBottom: '6px', pointerEvents: 'none',
+            fontSize: 'clamp(8px, 0.8vw, 10px)', color: 'rgba(0,31,77,0.35)',
             fontFamily: 'inherit', textAlign: 'center',
-            width: 'clamp(180px, 30vw, 600px)',
+            width: 'clamp(120px, 18vw, 300px)',
           }}>
             tap to chat
           </div>
